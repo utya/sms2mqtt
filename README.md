@@ -28,6 +28,7 @@ docker run \
     -e PASSWORD="pass" \
     -e USETLS=true \
     domochip/sms2mqtt
+```  
 For Docker-Compose, use the following yaml:
 
 ```yaml
