@@ -192,11 +192,13 @@ def shutdown(signum=None, frame=None):
     client.publish(f"{mqttprefix}/connected", "0", 0, True)
     client.disconnect()
 
-
-def setup_mqtt_ssl(client):
+def setup_mqtt_ssl(client, use_tls=False):
     try:
-        client.tls_set(ca_certs=certifi.where())
-        logging.info("SSL/TLS configured successfully")
+        if use_tls:
+            client.tls_set(ca_certs=certifi.where())
+            logging.info("SSL/TLS configured successfully")
+        else:
+            logging.info("Connecting without SSL/TLS")
     except Exception as e:
         logging.error(f"Error configuring SSL/TLS: {e}")
         exit(1)
@@ -232,6 +234,7 @@ if __name__ == "__main__":
     mqttclientid = os.getenv("CLIENTID","sms2mqtt")
     mqttuser = os.getenv("USER")
     mqttpassword = os.getenv("PASSWORD")
+    use_tls = str(os.getenv("USETLS", "")).lower() in ('true', '1', 'yes')
 
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
@@ -266,7 +269,7 @@ connection = at
 
     client = mqtt.Client(mqttclientid)
     client.username_pw_set(mqttuser, mqttpassword)
-    setup_mqtt_ssl(client)
+    setup_mqtt_ssl(client,use_tls)
     client.on_connect = on_mqtt_connect
     client.on_disconnect = on_mqtt_disconnect
     client.on_message = on_mqtt_message
