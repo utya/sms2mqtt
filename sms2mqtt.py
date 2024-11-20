@@ -6,7 +6,7 @@ import signal
 import paho.mqtt.client as mqtt
 import gammu
 import json
-
+import certifi
 
 # callback when the broker responds to our connection request.
 def on_mqtt_connect(client, userdata, flags, rc):
@@ -145,6 +145,8 @@ def get_signal_info():
 
 old_signal_info = ""
 
+
+
 # function used to obtain battery charge
 def get_battery_charge():
     global old_battery_charge
@@ -190,6 +192,14 @@ def shutdown(signum=None, frame=None):
     client.publish(f"{mqttprefix}/connected", "0", 0, True)
     client.disconnect()
 
+
+def setup_mqtt_ssl(client):
+    try:
+        client.tls_set(ca_certs=certifi.where())
+        logging.info("SSL/TLS configured successfully")
+    except Exception as e:
+        logging.error(f"Error configuring SSL/TLS: {e}")
+        exit(1)
 
 if __name__ == "__main__":
     logging.basicConfig( format="%(asctime)s: %(message)s", level=logging.INFO, datefmt="%H:%M:%S")
@@ -256,6 +266,7 @@ connection = at
 
     client = mqtt.Client(mqttclientid)
     client.username_pw_set(mqttuser, mqttpassword)
+    setup_mqtt_ssl(client)
     client.on_connect = on_mqtt_connect
     client.on_disconnect = on_mqtt_disconnect
     client.on_message = on_mqtt_message
