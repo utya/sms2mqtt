@@ -8,6 +8,9 @@ import gammu
 import json
 import certifi
 
+stuck_sms_detected = False
+last_stuck_sms = []
+
 # callback when the broker responds to our connection request.
 def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to MQTT host")
@@ -78,8 +81,28 @@ def on_mqtt_message(client, userdata, msg):
             client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
             logging.error(feedback['result'])
 
+    if 'action' in data and data['action'] == 'delete_stuck_sms':
+        deleted = []
+        for s in last_stuck_sms:
+            try:
+                gammusm.DeleteSMS(Folder=0, Location=s['Location'])
+                deleted.append(s['Location'])
+            except Exception as e:
+                logging.error(f"Failed to delete stuck SMS at {s['Location']}: {e}")
+        result = {
+            "result": "deleted" if deleted else "nothing",
+            "deleted_locations": deleted
+        }
+        client.publish(f"{mqttprefix}/control_response", json.dumps(result))
+        logging.info(f"Stuck SMS deleted: {deleted}")
+        return
+
 # function used to parse received sms
 def loop_sms_receive():
+
+    global stuck_sms_detected, last_stuck_sms
+    stuck_sms_detected = False
+    last_stuck_sms = []
 
     # process Received SMS
     allsms = []
@@ -97,7 +120,7 @@ def loop_sms_receive():
 
     if not len(allsms):
         return
-    
+
     alllinkedsms=gammu.LinkSMS(allsms)
 
     for sms in alllinkedsms:
@@ -120,7 +143,18 @@ def loop_sms_receive():
                 for part in sms:
                     gammusm.DeleteSMS(Folder=0, Location=part['Location'])
             else:
+                stuck_sms_detected = True
+                last_stuck_sms.extend(sms)
                 logging.info(f"Incomplete Multipart SMS ({len(sms)}/{sms[0]['UDH']['AllParts']}): waiting for parts")
+                client.publish(f"{mqttprefix}/stuck_status", json.dumps({
+                    "status": "stuck",
+                    "received_parts": len(sms),
+                    "expected_parts": sms[0]['UDH']['AllParts'],
+                    "number": sms[0].get("Number", "unknown"),
+                    "datetime": str(sms[0].get("DateTime", "")),
+                    "locations": [s['Location'] for s in sms],
+                }))
+                continue
         else:
             logging.info('***************** Unsupported SMS type *****************')
             logging.info('===============sms=================')
