@@ -16,6 +16,8 @@ def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Connected to MQTT host")
     client.publish(f"{mqttprefix}/connected", "1", 0, True)
     client.subscribe(f"{mqttprefix}/send")
+    client.subscribe(f"{mqttprefix}/control")
+    logging.info(f"Subscribed to {mqttprefix}/send and {mqttprefix}/control")
 
 # callback when the client disconnects from the broker.
 def on_mqtt_disconnect(client, userdata, rc):
@@ -27,12 +29,36 @@ def on_mqtt_disconnect(client, userdata, rc):
 def on_mqtt_message(client, userdata, msg):
     try:
         logging.info(f'MQTT received : {msg.payload}')
+        logging.info(f"MQTT topic: {msg.topic}")
         payload = msg.payload.decode("utf-8")
         data = json.loads(payload, strict=False)
     except Exception as e:
         feedback = {"result":f'error : failed to decode JSON ({e})', "payload":payload}
         client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
         logging.error(f'failed to decode JSON ({e}), payload: {msg.payload}')
+        return
+
+    # Handle action commands before processing SMS sending
+    if 'action' in data:
+        if data['action'] == 'delete_stuck_sms':
+            deleted = []
+            for s in last_stuck_sms:
+                try:
+                    gammusm.DeleteSMS(Folder=0, Location=s['Location'])
+                    deleted.append(s['Location'])
+                except Exception as e:
+                    logging.error(f"Failed to delete stuck SMS at {s['Location']}: {e}")
+            result = {
+                "result": "deleted" if deleted else "nothing",
+                "deleted_locations": deleted
+            }
+            client.publish(f"{mqttprefix}/control_response", json.dumps(result))
+            last_stuck_sms.clear()
+            stuck_sms_detected = False
+            logging.info(json.dumps(result))
+            logging.info(f"Stuck SMS deleted: {deleted}")
+        else:
+            logging.warning(f"Unknown action received: {data['action']}")
         return
 
     for key, value in data.items():
@@ -80,22 +106,6 @@ def on_mqtt_message(client, userdata, msg):
             feedback = {"result":f'error : {e}', "datetime":time.strftime("%Y-%m-%d %H:%M:%S"), "number":num, "text":text}
             client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
             logging.error(feedback['result'])
-
-    if 'action' in data and data['action'] == 'delete_stuck_sms':
-        deleted = []
-        for s in last_stuck_sms:
-            try:
-                gammusm.DeleteSMS(Folder=0, Location=s['Location'])
-                deleted.append(s['Location'])
-            except Exception as e:
-                logging.error(f"Failed to delete stuck SMS at {s['Location']}: {e}")
-        result = {
-            "result": "deleted" if deleted else "nothing",
-            "deleted_locations": deleted
-        }
-        client.publish(f"{mqttprefix}/control_response", json.dumps(result))
-        logging.info(f"Stuck SMS deleted: {deleted}")
-        return
 
 # function used to parse received sms
 def loop_sms_receive():
