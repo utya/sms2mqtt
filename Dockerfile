@@ -1,13 +1,14 @@
-FROM python:3.6.13-alpine3.12
+FROM python:3.11-alpine
 
 RUN apk add --no-cache gammu-dev
 
 RUN apk add --no-cache --virtual .build-deps gcc musl-dev \
-     && pip install python-gammu paho-mqtt certifi\
+     && pip install --no-cache-dir -r requirements.txt \
      && apk del .build-deps gcc musl-dev
 
 WORKDIR /app
 
+COPY requirements.txt .
 COPY sms2mqtt.py .
 
 ENTRYPOINT ["python", "/app/sms2mqtt.py"]

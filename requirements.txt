@@ -1,0 +1,4 @@
+# SMS2MQTT Python dependencies (reproducible builds)
+python-gammu>=3.2,<4
+paho-mqtt>=2.0
+certifi>=2023.7.22
