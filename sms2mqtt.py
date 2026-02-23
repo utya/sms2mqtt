@@ -8,22 +8,46 @@ import gammu
 import json
 import certifi
 
+def parse_log_level(value):
+    """Map LOG_LEVEL env string to logging constant; invalid values fall back to INFO."""
+    if not value:
+        return logging.INFO
+    v = str(value).strip().upper()
+    return {
+        "DEBUG": logging.DEBUG,
+        "INFO": logging.INFO,
+        "WARNING": logging.WARNING,
+        "WARN": logging.WARNING,
+        "ERROR": logging.ERROR,
+    }.get(v, logging.INFO)
+
+
 stuck_sms_detected = False
 last_stuck_sms = []
 
+# MQTT connection state for reconnection with backoff
+mqtt_connected = False
+reconnect_delay_sec = 2.0
+last_reconnect_attempt = 0.0
+
 # callback when the broker responds to our connection request.
 def on_mqtt_connect(client, userdata, flags, rc):
+    global mqtt_connected, reconnect_delay_sec
+    mqtt_connected = True
+    reconnect_delay_sec = 2.0  # reset backoff on successful connect
     logging.info("Connected to MQTT host")
     client.publish(f"{mqttprefix}/connected", "1", 0, True)
     client.subscribe(f"{mqttprefix}/send")
     client.subscribe(f"{mqttprefix}/control")
-    logging.info(f"Subscribed to {mqttprefix}/send and {mqttprefix}/control")
+    logging.info("Subscribed to %s/send and %s/control", mqttprefix, mqttprefix)
 
 # callback when the client disconnects from the broker.
 def on_mqtt_disconnect(client, userdata, rc):
+    global mqtt_connected
+    mqtt_connected = False
     logging.info("Disconnected from MQTT host")
-    logging.info("Exit")
-    exit()
+    if rc != 0:
+        logging.warning("Unexpected disconnect, reason code: %s", rc)
 
 # callback when a message has been received on a topic that the client subscribes to.
 def on_mqtt_message(client, userdata, msg):
@@ -257,11 +281,13 @@ def setup_mqtt_ssl(client, use_tls=False):
         exit(1)
 
 if __name__ == "__main__":
-    logging.basicConfig( format="%(asctime)s: %(message)s", level=logging.INFO, datefmt="%H:%M:%S")
+    log_level = parse_log_level(os.getenv("LOG_LEVEL", "INFO"))
+    logging.basicConfig(format="%(asctime)s: %(message)s", level=log_level, datefmt="%H:%M:%S")
 
-    versionnumber='1.4.6'
+    versionnumber = "1.4.6"
 
-    logging.info(f'===== sms2mqtt v{versionnumber} =====')
+    logging.info("Log level: %s", logging.getLevelName(log_level))
+    logging.info("===== sms2mqtt v%s =====", versionnumber)
 	
     # devmode is used to start container but not the code itself, then you can connect interactively and run this script by yourself
     # docker exec -it sms2mqtt /bin/sh
@@ -328,9 +354,27 @@ connection = at
     client.on_message = on_mqtt_message
     client.will_set(f"{mqttprefix}/connected", "0", 0, True)
     client.connect(mqtthost, mqttport)
+    mqtt_connected = True  # assume connected until on_disconnect sets False
 
+    reconnect_attempt = 0
     while True:
         time.sleep(1)
+        # Reconnect with backoff when disconnected
+        if not mqtt_connected:
+            now = time.time()
+            if now - last_reconnect_attempt >= reconnect_delay_sec:
+                reconnect_attempt += 1
+                last_reconnect_attempt = now
+                logging.debug("Reconnecting to MQTT (attempt %d)", reconnect_attempt)
+                try:
+                    client.reconnect()
+                    logging.info("Reconnected to MQTT")
+                    reconnect_attempt = 0
+                except Exception as e:
+                    logging.warning("MQTT reconnect failed: %s", e)
+                    reconnect_delay_sec = min(reconnect_delay_sec * 2, 60.0)
+            client.loop()
+            continue
         loop_sms_receive()
         get_signal_info()
         if moreinfo:
