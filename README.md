@@ -9,6 +9,8 @@ If you need specific gammu settings to be added, feel free to open a PR or an is
 
 ![Diagram](https://raw.githubusercontent.com/Domochip/sms2mqtt/master/diagram.svg)
 
+If the connection to the MQTT broker is lost, the service automatically reconnects with exponential backoff (instead of exiting). This keeps the container running through short network outages.
+
 # How-to
 ## Install
 For Docker, run it by executing the following commmand:
@@ -67,6 +69,7 @@ services:
 * `CLIENTID`: **Optional**, MQTT client id to use
 * `USER`: **Optional**, MQTT username
 * `PASSWORD`: **Optional**, MQTT password
+* `LOG_LEVEL`: **Optional**, Logging level. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`. Default: `INFO`
 
 ## Send
 
