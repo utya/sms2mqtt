@@ -33,9 +33,18 @@ def on_mqtt_message(client, userdata, msg):
         payload = msg.payload.decode("utf-8")
         data = json.loads(payload, strict=False)
     except Exception as e:
-        feedback = {"result":f'error : failed to decode JSON ({e})', "payload":payload}
+        # Do not use payload here — it may be undefined if decode or json.loads failed
+        try:
+            safe_payload = (
+                msg.payload.decode("utf-8", errors="replace")
+                if isinstance(msg.payload, bytes)
+                else str(msg.payload)
+            )
+        except Exception:
+            safe_payload = repr(msg.payload)
+        feedback = {"result": f"error : failed to decode JSON ({e})", "payload": safe_payload}
         client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
-        logging.error(f'failed to decode JSON ({e}), payload: {msg.payload}')
+        logging.error("failed to decode JSON (%s), payload: %s", e, safe_payload)
         return
 
     # Handle action commands before processing SMS sending
