@@ -1,12 +1,46 @@
 import logging
 import time
 from datetime import datetime
+from typing import Optional, Tuple
 import os
 import signal
 import paho.mqtt.client as mqtt
 import gammu
 import json
 import certifi
+
+
+def validate_send_payload(payload_bytes: bytes) -> Tuple[Optional[str], Optional[str], Optional[dict]]:
+    """
+    Parse and validate send payload. No I/O or globals — for unit testing.
+    Returns (number, text, None) on success or (None, None, error_feedback) on error.
+    error_feedback has keys "result" and "payload" (safe string for client).
+    """
+    try:
+        payload_str = payload_bytes.decode("utf-8")
+    except Exception as e:
+        try:
+            safe = payload_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            safe = repr(payload_bytes)
+        return (None, None, {"result": f"error : failed to decode JSON ({e})", "payload": safe})
+    try:
+        data = json.loads(payload_str, strict=False)
+    except Exception as e:
+        return (None, None, {"result": f"error : failed to decode JSON ({e})", "payload": payload_str})
+    number = None
+    text = None
+    for key, value in data.items():
+        if key.lower() == "number":
+            number = value
+        if key.lower() == "text":
+            text = value
+    if number is None or not isinstance(number, str) or not number.strip():
+        return (None, None, {"result": "error : no number to send to", "payload": payload_str})
+    if text is None or not isinstance(text, str):
+        return (None, None, {"result": "error : no text body to send", "payload": payload_str})
+    return (number, text, None)
+
 
 def parse_log_level(value):
     """Map LOG_LEVEL env string to logging constant; invalid values fall back to INFO."""
@@ -94,23 +128,12 @@ def on_mqtt_message(client, userdata, msg):
             logging.warning(f"Unknown action received: {data['action']}")
         return
 
-    for key, value in data.items():
-        if key.lower() == 'number':
-            number=value
-        if key.lower() == 'text':
-            text=value
-
-    if 'number' not in locals() or not isinstance(number, str) or not number:
-        feedback = {"result":'error : no number to send to', "payload":payload}
-        client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
-        logging.error('no number to send to')
-        return False
-
-    if 'text' not in locals() or not isinstance(text, str):
-        feedback = {"result":'error : no text body to send', "payload":payload}
-        client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
-        logging.error('no text body to send')
-        return False
+    # Send path: validate via pure function and use result
+    number, text, error_feedback = validate_send_payload(msg.payload)
+    if error_feedback is not None:
+        client.publish(f"{mqttprefix}/sent", json.dumps(error_feedback, ensure_ascii=False))
+        logging.error("%s", error_feedback.get("result", "validation error"))
+        return
 
     for num in (number.split(";")):
         num = num.replace(' ','')
