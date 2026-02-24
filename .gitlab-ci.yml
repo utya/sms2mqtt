@@ -1,0 +1,39 @@
+# CI: lint (Ruff) and tests (pytest). Runs on merge requests and default branch.
+image: python:3.11-slim
+
+stages:
+  - lint
+  - test
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+default:
+  interruptible: true
+  before_script:
+    - pip install --quiet -r requirements-dev.txt
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  key:
+    files:
+      - requirements-dev.txt
+  paths:
+    - .cache/pip
+  policy: pull-push
+
+lint:
+  stage: lint
+  script:
+    - ruff check .
+    - ruff format --check .
+
+test:
+  stage: test
+  script:
+    - pytest tests/ -v --tb=short
+    - PYTHONPATH=sms2mqtt-persistence pytest sms2mqtt-persistence/tests/ -v --tb=short

@@ -123,6 +123,28 @@ Received SMS are published to topic **sms2mqtt/received** like this :
 
 To store received and sent SMS in PostgreSQL, use the optional [sms2mqtt-persistence](sms2mqtt-persistence/) service. It subscribes to `{prefix}/received` and `{prefix}/sent` and writes rows to a database. You can run it with Docker Compose: `docker compose -f docker-compose.persistence.yml --profile persistence up -d` (see [sms2mqtt-persistence/README.md](sms2mqtt-persistence/README.md)).
 
+# Development
+
+To run tests and lint locally (no GSM modem or MQTT required):
+
+1. **Install dev dependencies** (after base requirements if you need them for running the app):
+   ```bash
+   pip install -r requirements-dev.txt
+   ```
+   For CI and tests only, `requirements-dev.txt` is enough (tests mock Gammu and MQTT).
+
+2. **Run tests:**
+   ```bash
+   pytest tests/ -v
+   PYTHONPATH=sms2mqtt-persistence pytest sms2mqtt-persistence/tests/ -v
+   ```
+
+3. **Run lint:**
+   ```bash
+   ruff check .
+   ruff format --check .
+   ```
+
 # Troubleshoot
 ## Logs
 You need to have a look at logs using :  

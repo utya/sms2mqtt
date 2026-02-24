@@ -1,0 +1,41 @@
+# CI: lint (Ruff) and tests (pytest). No Docker build; see docker-publish-*.yml for images.
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Ruff check
+        run: ruff check .
+      - name: Ruff format
+        run: ruff format --check .
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run root tests
+        run: pytest tests/ -v --tb=short
+      - name: Run persistence tests
+        run: PYTHONPATH=sms2mqtt-persistence pytest sms2mqtt-persistence/tests/ -v --tb=short

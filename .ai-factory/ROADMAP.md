@@ -10,7 +10,7 @@
 - [x] **Reproducible builds** — добавить `requirements.txt` (или `pyproject.toml`) с зафиксированными версиями зависимостей; в Dockerfile установка через него
 - [x] **Reliability and config** — переподключение к MQTT вместо `exit()` при отключении; уровень логирования из env (`LOG_LEVEL`)
 - [x] **Testing foundation** — минимальные unit-тесты: парсинг и валидация JSON для send (number/text, ошибки, не UTF-8), без MQTT и Gammu
-- [ ] **CI: tests and lint** — в GitHub Actions добавить job с установкой зависимостей, запуском тестов и линтера; ограничить публикацию dev-образа по ветке (например, dev/develop)
+- [x] **CI: tests and lint** — в GitHub Actions добавить job с установкой зависимостей, запуском тестов и линтера; ограничить публикацию dev-образа по ветке (например, dev/develop)
 - [x] **Operations** — добавить HEALTHCHECK в Dockerfile для оркестраторов
 - [x] **Optional: SMS persistence** — отдельный модуль (MQTT Listener): подписка на топики received/sent, запись сообщений в PostgreSQL; отдельная папка, отдельный образ, опциональный сервис в Docker Compose (можно не запускать)
 - [x] **Code quality (optional)** — при рефакторинге уменьшить глобальное состояние (конфиг/колбэки); опционально: нормализация номера и лимиты длины текста
@@ -27,3 +27,4 @@
 | Operations | 2025-02-24 |
 | Optional: SMS persistence | 2025-02-24 |
 | Code quality (optional) | 2025-02-24 |
+| CI: tests and lint | 2025-02-24 |
