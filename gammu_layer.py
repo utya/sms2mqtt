@@ -3,18 +3,25 @@ Gammu I/O layer: modem init, send/receive SMS, signal/battery/network/datetime.
 No MQTT, no topic names, no business logic — thin wrapper over gammu.
 """
 
+import logging
+
 import gammu
 
 
 def write_gammurc(path: str, device: str, gammuoption: str = "") -> None:
-    """Write Gammu config file to path."""
-    with open(path, "w") as f:
-        f.write(f"""
+    """Write Gammu config file to path (must be in a writable directory)."""
+    try:
+        with open(path, "w") as f:
+            f.write(f"""
 [gammu]
 device = {device}
 connection = at
 {gammuoption}
 """)
+        logging.debug("[FIX] gammurc written to %s", path)
+    except OSError as e:
+        logging.error("[FIX] Failed to write gammurc to %s: %s", path, e)
+        raise
 
 
 def init_state_machine(gammurc_path: str, pincode: str = None) -> gammu.StateMachine:

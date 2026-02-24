@@ -6,6 +6,7 @@ Builds config and context, initializes Gammu and MQTT, runs main loop.
 import logging
 import os
 import signal
+import tempfile
 import time
 from types import SimpleNamespace
 
@@ -117,7 +118,9 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, mqtt_layer.shutdown)
     signal.signal(signal.SIGTERM, mqtt_layer.shutdown)
 
-    gammurc_path = "/app/gammurc"
+    # Use writable dir (e.g. /tmp): container runs as non-root and /app is not writable
+    gammurc_path = os.path.join(tempfile.gettempdir(), "gammurc")
+    logging.debug("[FIX] Writing gammurc to writable path: %s", gammurc_path)
     gammu_io.write_gammurc(gammurc_path, config.device, config.gammuoption)
     gammusm = gammu_io.init_state_machine(gammurc_path, config.pincode)
 
