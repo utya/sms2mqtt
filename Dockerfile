@@ -1,15 +1,19 @@
+# Main image: SMS-to-MQTT bridge. Uses uv for dependencies (no pip/requirements.txt).
 FROM python:3.11-alpine
 
 RUN apk add --no-cache gammu-dev
 
-RUN apk add --no-cache --virtual .build-deps gcc musl-dev \
-     && pip install --no-cache-dir -r requirements.txt \
-     && apk del .build-deps gcc musl-dev
+# Install uv (binary from official image)
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 
-COPY requirements.txt .
-COPY sms2mqtt.py .
+COPY pyproject.toml uv.lock ./
+RUN apk add --no-cache --virtual .build-deps gcc musl-dev \
+     && uv sync --frozen --no-dev --extra run \
+     && apk del .build-deps gcc musl-dev
+
+COPY logic.py mqtt_layer.py gammu_layer.py sms2mqtt.py ./
 
 ENTRYPOINT ["python", "/app/sms2mqtt.py"]
 
