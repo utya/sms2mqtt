@@ -8,8 +8,9 @@ dependencies = [
     "certifi>=2023.7.22",
 ]
 [project.optional-dependencies]
+# Pinned <3.2.6: 3.2.6 requires Gammu>=1.43; Alpine has 1.42.0
 run = [
-    "python-gammu>=3.2,<4",
+    "python-gammu>=3.2,<3.2.6",
 ]
 dev = [
     "pytest>=7.0",

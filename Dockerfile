@@ -6,12 +6,14 @@
 FROM python:3.11-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache gammu-dev
+# So python-gammu's build finds Gammu via pkg-config (uv may not pass env to build backend)
+ENV PKG_CONFIG_PATH=/usr/lib/pkgconfig
 COPY --from=ghcr.io/astral-sh/uv:0.10 /uv /uvx /bin/
 COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
-    apk add --no-cache --virtual .build-deps gcc musl-dev \
+    apk add --no-cache --virtual .build-deps gcc musl-dev git \
     && uv sync --frozen --no-dev --extra run \
-    && apk del .build-deps gcc musl-dev
+    && apk del .build-deps gcc musl-dev git
 
 # --- Production ---
 FROM python:3.11-alpine AS production

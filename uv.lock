@@ -83,14 +83,14 @@ wheels = [
 
 [[package]]
 name = "python-gammu"
-version = "3.2.6"
+version = "3.2.5"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/35/f0/7350ddade5af87b9fa810c304efdfed0572b2853ca6fa962cda28f47aba3/python_gammu-3.2.6.tar.gz", hash = "sha256:822acd8c177cc06cf8f824d4b03509597861db9baab5c09fccdec3ce54266880", size = 144593, upload-time = "2026-02-10T07:29:52.184Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/58/8c/31af0b7a10383f04302cfeb1d9aae3d93f8f07e7732bcbba483967ef469e/python_gammu-3.2.5.tar.gz", hash = "sha256:3c9a8b1188b41dec4106724d16493037fdeec81df5557a61685245ee5f8dfcaf", size = 143629, upload-time = "2026-02-05T13:17:55.686Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/d0/c35f577728100eae58b02a9a17ab7cac36264b46e3ef1a82c72e25738067/python_gammu-3.2.6-cp311-cp311-win_amd64.whl", hash = "sha256:4ec60f7508d1478bf73febfc0f67dce945190649367d86f89c3ccd8ecf97403f", size = 552115, upload-time = "2026-02-10T07:29:46.824Z" },
-    { url = "https://files.pythonhosted.org/packages/ba/5f/00f997e163351719c936c7ef3237a1907414cee0dffabfd01291285beea2/python_gammu-3.2.6-cp312-cp312-win_amd64.whl", hash = "sha256:79d5340ff5725a8ce851fa165816a662a84e40ae4ea5e8089d2a1d7173e7ab4b", size = 552431, upload-time = "2026-02-10T07:29:48.216Z" },
-    { url = "https://files.pythonhosted.org/packages/d0/18/98a0851ec8ee848bb4604bccf710cc910c30760a186b5d12505c8ab38870/python_gammu-3.2.6-cp313-cp313-win_amd64.whl", hash = "sha256:84c634b90a63411334ab112e1662f02c8466fcc79328129197f55f065073eb75", size = 552443, upload-time = "2026-02-10T07:29:49.367Z" },
-    { url = "https://files.pythonhosted.org/packages/80/ac/9a4877ddf092f511a083b08b2d5b5486ebc3010161430d919ac6ee3d5cbc/python_gammu-3.2.6-cp314-cp314-win_amd64.whl", hash = "sha256:2d904e1aacadcc10ecb35797f6fb4bb8dd9e5484fb9aa5a476e756cf75e9d21b", size = 567933, upload-time = "2026-02-10T07:29:50.965Z" },
+    { url = "https://files.pythonhosted.org/packages/0c/0a/883f019a0c093ccc8784b6698eaedb5221727b9633770836621e6c236ce0/python_gammu-3.2.5-cp311-cp311-win_amd64.whl", hash = "sha256:181901f9d0a1fcc7b8be3aa5921b46776181e9ba0a0861f816f66795d73c068e", size = 553686, upload-time = "2026-02-05T13:17:48.588Z" },
+    { url = "https://files.pythonhosted.org/packages/06/ed/3a7e8d113249f1ca657a4bac2bf6880f6b39e320d0b0b953e8c4f08f9941/python_gammu-3.2.5-cp312-cp312-win_amd64.whl", hash = "sha256:7ae76b5f319555f0ee1256731b3b4b90ebc66b46e028c27fd7a421614d1b67a3", size = 554098, upload-time = "2026-02-05T13:17:50.571Z" },
+    { url = "https://files.pythonhosted.org/packages/f7/b6/b159681f193e56fb47f6be59059539589d691811995a79c61f2b73f503eb/python_gammu-3.2.5-cp313-cp313-win_amd64.whl", hash = "sha256:3e61be25f133c3c8c1ccc03c3426023af434fe17c0b63879fe11550d07e4e54f", size = 554078, upload-time = "2026-02-05T13:17:52.535Z" },
+    { url = "https://files.pythonhosted.org/packages/ee/1e/58adef0374491d2179f8f2bf2718f49fa68d19616873891f537d68ecf079/python_gammu-3.2.5-cp314-cp314-win_amd64.whl", hash = "sha256:1efba0bb25d55cea9aa00965c47bfaf24ffa692d92db31ac825bf3beb065ade3", size = 570533, upload-time = "2026-02-05T13:17:53.992Z" },
 ]
 
 [[package]]
@@ -141,7 +141,7 @@ requires-dist = [
     { name = "certifi", specifier = ">=2023.7.22" },
     { name = "paho-mqtt", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
-    { name = "python-gammu", marker = "extra == 'run'", specifier = ">=3.2,<4" },
+    { name = "python-gammu", marker = "extra == 'run'", specifier = ">=3.2,<3.2.6" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
 ]
 provides-extras = ["run", "dev"]
