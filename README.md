@@ -26,11 +26,12 @@ docker run \
     --device=/dev/ttyUSB0:/dev/mobile \
     -e PIN="1234" \
     -e HOST="192.168.1.x" \
-    -e PORT=1883 \
+    -e PORT=8883 \
     -e PREFIX="sms2mqtt" \
     -e CLIENTID="sms2mqttclid" \
     -e USER="usr" \
     -e PASSWORD="pass" \
+    -e USETLS=true \
     domochip/sms2mqtt
 ```
 
@@ -45,15 +46,16 @@ services:
     container_name: sms2mqtt
     image: domochip/sms2mqtt
     devices:
-    - /dev/serial/by-id/usb-HUAWEI_HUAWEI_Mobile-if00-port0:/dev/mobile
+      - /dev/serial/by-id/usb-HUAWEI_HUAWEI_Mobile-if00-port0:/dev/mobile
     environment:
-    - PIN=1234
-    - HOST=10.0.0.2
-    - PORT=1883
-    - PREFIX=sms2mqtt
-    - CLIENTID=sms2mqttclid
-    - USER=mqtt_username
-    - PASSWORD=mqtt_password
+      - PIN=1234
+      - HOST=10.0.0.2
+      - PORT=8883
+      - PREFIX=sms2mqtt
+      - CLIENTID=sms2mqttclid
+      - USER=mqtt_username
+      - PASSWORD=mqtt_password
+      - USETLS=true
     restart: always
 ```
 
@@ -75,6 +77,7 @@ services:
 * `CLIENTID`: **Optional**, MQTT client id to use
 * `USER`: **Optional**, MQTT username
 * `PASSWORD`: **Optional**, MQTT password
+* `USETLS`: **Optional**, Enable TLS/SSL connection to MQTT broker (use 'true', '1' or 'yes' to enable)
 * `LOG_LEVEL`: **Optional**, Logging level. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`. Default: `INFO`
 
 ## Send

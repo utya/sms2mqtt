@@ -16,7 +16,6 @@ import gammu_layer as gammu_io
 import mqtt_layer
 from logic import parse_log_level
 
-
 def build_config_from_env() -> SimpleNamespace:
     """Build config from environment. No secrets in logs."""
     logging.debug("Building config from env")
@@ -89,7 +88,6 @@ from mqtt_layer import (  # noqa: E402, F401
 
 # For tests that call on_mqtt_disconnect(None, None, rc): mutable so they can assert mqtt_connected[0] is False
 mqtt_connected = mqtt_layer._compat_mqtt_connected
-
 
 if __name__ == "__main__":
     from datetime import datetime
