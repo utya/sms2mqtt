@@ -33,6 +33,9 @@ docker run \
     -e PASSWORD="pass" \
     domochip/sms2mqtt
 ```
+
+The image defines a HEALTHCHECK so Compose/Kubernetes can mark the container unhealthy if the process exits.
+
 For Docker-Compose, use the following yaml:
 
 ```yaml

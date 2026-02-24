@@ -12,3 +12,5 @@ COPY requirements.txt .
 COPY sms2mqtt.py .
 
 ENTRYPOINT ["python", "/app/sms2mqtt.py"]
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD kill -0 1 || exit 1
