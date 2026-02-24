@@ -198,4 +198,8 @@ docker rmi domochip/sms2mqtt
 
 I want to thanks those repositories for their codes that inspired me :  
 * https://github.com/pajikos/sms-gammu-gateway
-* https://github.com/pkropf/mqtt2sms 
+* https://github.com/pkropf/mqtt2sms
+
+---
+
+Documentation in Russian: [README.ru.md](README.ru.md).
