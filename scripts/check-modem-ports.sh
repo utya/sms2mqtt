@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Check which /dev/ttyUSB* port works with Gammu (for use before configuring Docker).
 # Run on the host where the modem is attached. Requires gammu installed.
-# Uses a minimal config (no PIN); if SIM has PIN, you get "SIM not accessible" even though
-# the port is correct (modem_stat.sh may still show operator/signal if it uses a config with PIN).
+# Uses a minimal config (no PIN). "SIM not accessible" can mean PIN required, or SIM not ready/seated.
 # Usage: ./scripts/check-modem-ports.sh [ttyUSB0 ttyUSB1 ttyUSB2]
 #        Or with sudo if you get "permission denied": sudo ./scripts/check-modem-ports.sh
 
@@ -41,7 +40,7 @@ EOF
     echo "OK (modem + SIM seen)"
     echo "$out" | sed 's/^/  /'
   elif echo "$out" | grep -qi "NOSIM\|Can not access SIM"; then
-    echo "PORT OK, SIM not accessible (often PIN required — add PIN= to .env for Docker)"
+    echo "PORT OK, SIM not accessible (if SIM has PIN add PIN= to .env; else check SIM seating)"
   elif echo "$out" | grep -qi "TIMEOUT\|No response"; then
     echo "TIMEOUT (port not for AT commands, do not use in Docker)"
   elif echo "$out" | grep -qi "permission\|Permission"; then
@@ -54,4 +53,4 @@ EOF
 done
 
 rm -f "$RCFILE"
-echo "Done. Use a port that shows OK or 'PORT OK, SIM not accessible' in compose; add PIN= to .env if SIM has PIN."
+echo "Done. Use a port that shows OK or 'PORT OK, SIM not accessible' in compose."

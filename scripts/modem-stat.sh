@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Full diagnostics for GSM modem (signal, operator, network type, USB power).
 # Run on the host where the modem is attached. Requires gammu installed.
+#
 # Usage: ./scripts/modem-stat.sh [device]
-#   device  optional, e.g. /dev/ttyUSB0 (default: gammu uses its default config)
-#   Or: GAMMURC=/tmp/gammurc ./scripts/modem-stat.sh
+#   device  optional, e.g. /dev/ttyUSB0
+#   Without device: gammu uses default config (~/.gammurc or /etc/gammurc).
+#   With device: same minimal config as check-modem-ports.sh (no PIN); if you get
+#     "SIM not accessible" there, monitor/networkinfo here may fail too on that port.
+#   Or: GAMMURC=/path/to/gammurc ./scripts/modem-stat.sh
 
 set -e
 
@@ -43,13 +47,13 @@ CID=$(echo "$RAW_NET" | grep -oP 'CID \K[0-9A-F]+' | head -1)
 # 3. Power analysis
 PWR_ISSUE=$(echo "$D_LOG" | grep -iE "usb.*disconnect|reset.*high-speed|device descriptor read/64, error" | grep "1-1.7" || true)
 
-# 4. Output main data
-printf "ОПЕРАТОР:      \e[1;32m%s\e[0m\n" "${OPERATOR:-MegaFon}"
-printf "ТИП СЕТИ:      \e[1;34m%s\e[0m\n" "${NETWORK_TYPE:-3G}"
+# 4. Output main data (no fake defaults — only what gammu returned)
+printf "ОПЕРАТОР:      \e[1;32m%s\e[0m\n" "${OPERATOR:---}"
+printf "ТИП СЕТИ:      \e[1;34m%s\e[0m\n" "${NETWORK_TYPE:---}"
 echo "--------------------------------------------------"
-printf "СИГНАЛ:        \e[1;33m%s dBm (%s %%)\e[0m\n" "${SIGNAL_DBM:-}" "${SIGNAL_PERCENT:-}"
-echo "ВЫШКА (LAC):   ${LAC:-}"
-echo "ВЫШКА (CID):   ${CID:-}"
+printf "СИГНАЛ:        \e[1;33m%s dBm (%s %%)\e[0m\n" "${SIGNAL_DBM:---}" "${SIGNAL_PERCENT:---}"
+echo "ВЫШКА (LAC):   ${LAC:---}"
+echo "ВЫШКА (CID):   ${CID:---}"
 echo "--------------------------------------------------"
 
 # 5. Technical analysis
@@ -70,7 +74,9 @@ if [ "${NETWORK_TYPE:-}" = "GPRS" ] || [ "${NETWORK_TYPE:-}" = "EDGE" ]; then
     printf "СКОРОСТЬ: \e[1;31mОЧЕНЬ НИЗКАЯ (2G режим)\e[0m\n"
     echo "СОВЕТ: Модем сбросил скорость до минимума из-за плохого питания"
     echo "       или слабого приема 3G-сигнала."
-else
+elif [ -n "${NETWORK_TYPE:-}" ]; then
     printf "СКОРОСТЬ: \e[1;32mНОРМАЛЬНАЯ (3G режим)\e[0m\n"
+else
+    printf "СКОРОСТЬ: %s\n" "— (нет данных от модема)"
 fi
 echo "=================================================="
