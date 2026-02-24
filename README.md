@@ -67,17 +67,20 @@ services:
 *NOTE: The `/dev/ttyUSBx` path of your GSM modem could change on reboot, so it's recommended to use the `/dev/serial/by-id/` path or symlink udev rules to avoid this issue.*
 
 #### Environment variables
+* `DEVICE`: **Optional**. Path to the GSM modem device. Default: `/dev/mobile`. Inside Docker the host device is usually mapped to `/dev/mobile` (e.g. `--device=/dev/ttyUSB0:/dev/mobile`). Use `/dev/serial/by-id/...` on the host to get a stable path across reboots.
 * `PIN`: **Optional**, Pin code of your SIM
 * `GAMMUOPTION`: **Optional**, Allow to add a specific line in gammu configuration (ex : 'atgen_setcnmi = 1,2,0,0')
 * `MOREINFO`: **Optional**, Add more topics about your GSM device (battery and network)
 * `HEARTBEAT`: **Optional**, Enable the heartbeat topic
 * `HOST`: IP address or hostname of your MQTT broker
-* `PORT`: **Optional**, port of your MQTT broker
-* `PREFIX`: **Optional**, MQTT prefix used in topics for subscribe/publish
-* `CLIENTID`: **Optional**, MQTT client id to use
+* `PORT`: **Optional**, port of your MQTT broker (use 8883 when TLS is enabled)
+* `PREFIX`: **Optional**, MQTT prefix used in topics for subscribe/publish. Default: `sms2mqtt`
+* `CLIENTID`: **Optional**, MQTT client id to use. Default: `sms2mqtt`
 * `USER`: **Optional**, MQTT username
 * `PASSWORD`: **Optional**, MQTT password
-* `USETLS`: **Optional**, Enable TLS/SSL connection to MQTT broker (use 'true', '1' or 'yes' to enable)
+* `USETLS`: **Optional**. Enable MQTT over TLS. Set to `true`, `1`, or `yes` (case-insensitive) to enable. Default: off. The client uses the system CA bundle (certifi). When using TLS, set `PORT=8883` unless your broker uses a different port.
+* `DEVMODE`: **Optional**. If set to `1`, the process waits for Enter before starting the main loop (useful for attaching a debugger). Default: `0`.
+* `SMS_MAX_TEXT_LENGTH`: **Optional**. Maximum length of the SMS text in send payload; if exceeded, validation returns an error. Omit or leave empty for no limit.
 * `LOG_LEVEL`: **Optional**, Logging level. One of `DEBUG`, `INFO`, `WARNING`, `ERROR`. Default: `INFO`
 
 ## Send
@@ -105,11 +108,32 @@ Received SMS are published to topic **sms2mqtt/received** like this :
 - ❌ any MMS
 
 ## Other topics
+
+| Topic | Direction | Description |
+|-------|-----------|-------------|
+| `{prefix}/send` | in | Send SMS (JSON: number, text) |
+| `{prefix}/sent` | out | Send confirmation or error |
+| `{prefix}/received` | out | Incoming SMS |
+| `{prefix}/connected` | out | Connection status (0 or 1) |
+| `{prefix}/signal` | out | Signal quality |
+| `{prefix}/control` | in | Control commands (e.g. delete_stuck_sms) |
+| `{prefix}/control_response` | out | Response to control commands |
+| `{prefix}/stuck_status` | out | Incomplete multipart SMS detected |
+| `{prefix}/battery` | out | Battery (if MOREINFO) |
+| `{prefix}/network` | out | Network (if MOREINFO) |
+| `{prefix}/datetime` | out | Device timestamp (if HEARTBEAT) |
+
  - **sms2mqtt/connected**: Indicates connection status of the container (0 or 1)  
  E.g. `1`
 
 - **sms2mqtt/signal**: A signal quality payload is published when quality changes  
  E.g. `{"SignalStrength": -71, "SignalPercent": 63, "BitErrorRate": -1}`
+
+- **sms2mqtt/control** (subscribe): Control channel. Publish JSON with `"action": "delete_stuck_sms"` to delete SMS stuck in incomplete multipart state. Other actions are ignored (logged as unknown).
+
+- **sms2mqtt/control_response** (publish): Response to control commands. E.g. `{"result": "deleted", "deleted_locations": [1, 2]}` or `{"result": "nothing", "deleted_locations": []}`.
+
+- **sms2mqtt/stuck_status** (publish): Published when an incomplete multipart SMS is detected. Payload includes `status`, `received_parts`, `expected_parts`, `number`, `datetime`, `locations`. Clients can trigger cleanup by publishing `{"action": "delete_stuck_sms"}` to `{prefix}/control`.
 
 ### Additionnal topics (enabled using MOREINFO flag)
  - **sms2mqtt/battery**: A battery payload with status and charge is published when it changes  
@@ -125,6 +149,12 @@ Received SMS are published to topic **sms2mqtt/received** like this :
 ## Optional: SMS persistence
 
 To store received and sent SMS in PostgreSQL, use the optional [sms2mqtt-persistence](sms2mqtt-persistence/) service. It subscribes to `{prefix}/received` and `{prefix}/sent` and writes rows to a database. You can run it with Docker Compose: `docker compose -f docker-compose.persistence.yml --profile persistence up -d` (see [sms2mqtt-persistence/README.md](sms2mqtt-persistence/README.md)).
+
+## Security
+
+- **TLS:** For production, use MQTT over TLS: set `USETLS=true` (or `1`/`yes`) and `PORT=8883`. The app uses the default CA bundle (certifi) to verify the broker; for custom CAs or client certificates, code changes would be required.
+- **Secrets:** Do not put real SIM PIN codes or MQTT passwords in examples or in files committed to version control. Use environment variables, Docker secrets, or `.env` files that are not in the repo (see the note in [Install](#install) above).
+- **ACL:** Who can send SMS or run control actions is determined only by the MQTT broker’s ACL (who is allowed to publish to `{prefix}/send` and `{prefix}/control`). There is no application-level authentication. Restrict publish access to these topics to trusted clients.
 
 # Development
 

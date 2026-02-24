@@ -62,7 +62,7 @@ sms2mqtt/
 
 | Document | Path | Description |
 |----------|------|-------------|
-| README | README.md | Install (Docker/Compose), env vars, topics, troubleshoot, update |
+| README | README.md | Install (Docker/Compose), env vars, all MQTT topics, security (TLS, secrets, ACL), troubleshoot, update |
 
 ## AI Context Files
 
