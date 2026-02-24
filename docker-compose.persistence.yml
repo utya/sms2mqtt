@@ -2,9 +2,15 @@
 # Main sms2mqtt bridge is NOT included — run it separately or add to your compose.
 # Usage: docker compose -f docker-compose.persistence.yml --profile persistence up -d
 
+x-logging: &persistence-logging
+  driver: "json-file"
+  options:
+    max-size: "20m"
+    max-file: "5"
+
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: sms2mqtt
       POSTGRES_USER: sms2mqtt
@@ -14,10 +20,19 @@ services:
     profiles:
       - persistence
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sms2mqtt"]
+      test: ["CMD-SHELL", "pg_isready -U sms2mqtt -d sms2mqtt"]
       interval: 5s
       timeout: 3s
       retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    logging: *persistence-logging
 
   sms2mqtt-persistence:
     build: ./sms2mqtt-persistence
@@ -40,6 +55,13 @@ services:
         condition: service_healthy
     profiles:
       - persistence
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+          pids: 50
+    logging: *persistence-logging
 
 volumes:
   persistence_pgdata:

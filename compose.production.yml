@@ -1,0 +1,41 @@
+# Production overlay for main SMS-to-MQTT bridge.
+# Usage: docker compose -f compose.yml -f compose.production.yml up -d
+# Set DOCKER_REGISTRY, DOCKER_IMAGE, VERSION in .env or pass at deploy time.
+
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-security: &default-security
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  sms2mqtt:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_IMAGE:-sms2mqtt/sms2mqtt}:${VERSION:-latest}
+    <<: *default-security
+    user: "1001:1001"
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+          pids: 50
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    healthcheck:
+      test: ["CMD", "kill", "-0", "1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+    logging: *default-logging
+    restart: unless-stopped

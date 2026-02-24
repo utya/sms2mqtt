@@ -1,0 +1,19 @@
+# Main SMS-to-MQTT bridge. MQTT broker runs elsewhere (host or separate container).
+# Optional persistence: docker compose -f docker-compose.persistence.yml --profile persistence up -d
+name: ${COMPOSE_PROJECT_NAME:-sms2mqtt}
+
+services:
+  sms2mqtt:
+    build:
+      context: .
+      target: production
+    env_file: .env
+    # Mount modem device (adjust to your /dev/ttyUSB* or /dev/gsm*)
+    # devices:
+    #   - "/dev/ttyUSB0:/dev/mobile"
+    healthcheck:
+      test: ["CMD", "kill", "-0", "1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

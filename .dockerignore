@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# IDE
+.vscode
+.idea
+.cursor
+.agent
+.gemini
+.opencode
+*.swp
+*.swo
+
+# Docker (prevent recursive copy)
+Dockerfile*
+docker-compose*
+compose*
+.dockerignore
+
+# Dependencies (rebuilt in container)
+__pycache__
+*.pyc
+.venv
+venv
+*.egg-info
+
+# Environment files (secrets)
+.env
+.env.*
+!.env.example
+
+# Build / docs
+dist
+build
+tmp
+*.md
+docs/
+.ai-factory/
+
+# Optional persistence (separate image)
+sms2mqtt-persistence/
+
+# OS
+.DS_Store
+Thumbs.db
