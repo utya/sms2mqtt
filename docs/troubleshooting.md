@@ -41,6 +41,30 @@ docker compose build --pull
 docker compose up -d
 ```
 
+## Finding the right modem port
+
+If you have several `/dev/ttyUSB*` ports and get **ERR_NOSIM** or **ERR_TIMEOUT**, run on the host (with gammu installed):
+
+```bash
+./scripts/check-modem-ports.sh
+```
+
+Or with sudo if you see "permission denied":
+
+```bash
+sudo ./scripts/check-modem-ports.sh
+```
+
+The script tests each port and reports which one sees the modem (and SIM). Use that port in `compose.yml` under `devices`.
+
+For full modem diagnostics (signal, operator, network type, USB power) on the host, use:
+
+```bash
+./scripts/modem-stat.sh /dev/ttyUSB0
+```
+
+(Replace with the port that worked in `check-modem-ports.sh`.)
+
 ## See Also
 
 - [Getting Started](getting-started.md) — install and verify

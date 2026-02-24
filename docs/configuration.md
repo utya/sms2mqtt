@@ -6,8 +6,8 @@
 
 The GSM modem device must be available inside the container. Default path inside the container is `/dev/mobile`.
 
-- **Docker run:** map the host device, e.g. `--device=/dev/ttyUSB0:/dev/mobile`.
-- **Docker Compose:** in `compose.yml`, set `devices` (e.g. `"/dev/ttyUSB0:/dev/mobile"`).
+- **Docker run:** map the host device, e.g. `--device=/dev/ttyUSB0:/dev/mobile`, and add the host's `dialout` group so the process can open it: `--group-add $(getent group dialout | cut -d: -f3)`.
+- **Docker Compose:** in `compose.yml`, set `devices` (e.g. `"/dev/ttyUSB0:/dev/mobile"`) and `group_add` with your host's dialout GID (e.g. `getent group dialout | cut -d: -f3`). Without `group_add`, you may get "you don't have the required permission" (ERR_DEVICENOPERMISSION).
 
 **Tip:** `/dev/ttyUSBx` can change after reboot. Prefer a stable path such as `/dev/serial/by-id/usb-HUAWEI_HUAWEI_Mobile-if00-port0` and map it to `/dev/mobile`.
 

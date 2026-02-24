@@ -9,8 +9,12 @@ services:
       target: production
     env_file: .env
     # Mount modem device (adjust to your /dev/ttyUSB* or /dev/gsm*)
-    # devices:
-    #   - "/dev/ttyUSB0:/dev/mobile"
+    devices:
+      - "/dev/ttyUSB0:/dev/mobile"
+    # Required so non-root appuser can open the device (host dialout GID)
+    # Get GID: getent group dialout | cut -d: -f3
+    group_add:
+      - "20"
     healthcheck:
       test: ["CMD", "kill", "-0", "1"]
       interval: 30s
