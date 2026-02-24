@@ -13,6 +13,9 @@ If the connection to the MQTT broker is lost, the service automatically reconnec
 
 # How-to
 ## Install
+
+**Security:** The examples below use placeholder values (`1234`, `pass`, etc.). Do not use real SIM PIN codes or MQTT passwords in examples or in files committed to version control. Use environment variables or secrets (e.g. Docker secrets, `.env` files not in the repo) for production.
+
 For Docker, run it by executing the following commmand:
 
 ```bash

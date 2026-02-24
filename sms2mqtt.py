@@ -86,8 +86,8 @@ def on_mqtt_disconnect(client, userdata, rc):
 # callback when a message has been received on a topic that the client subscribes to.
 def on_mqtt_message(client, userdata, msg):
     try:
-        logging.info(f'MQTT received : {msg.payload}')
-        logging.info(f"MQTT topic: {msg.topic}")
+        logging.debug("MQTT received on %s: %s", msg.topic, msg.payload)
+        logging.info("MQTT message on topic: %s", msg.topic)
         payload = msg.payload.decode("utf-8")
         data = json.loads(payload, strict=False)
     except Exception as e:
@@ -100,14 +100,16 @@ def on_mqtt_message(client, userdata, msg):
             )
         except Exception:
             safe_payload = repr(msg.payload)
-        feedback = {"result": f"error : failed to decode JSON ({e})", "payload": safe_payload}
+        feedback = {"result": "error : failed to decode JSON", "payload": safe_payload}
         client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
         logging.error("failed to decode JSON (%s), payload: %s", e, safe_payload)
         return
 
     # Handle action commands before processing SMS sending
-    if 'action' in data:
-        if data['action'] == 'delete_stuck_sms':
+    ALLOWED_ACTIONS = ("delete_stuck_sms",)
+    if "action" in data:
+        action = data["action"] if isinstance(data.get("action"), str) else None
+        if action in ALLOWED_ACTIONS and action == "delete_stuck_sms":
             deleted = []
             for s in last_stuck_sms:
                 try:
@@ -125,7 +127,7 @@ def on_mqtt_message(client, userdata, msg):
             logging.info(json.dumps(result))
             logging.info(f"Stuck SMS deleted: {deleted}")
         else:
-            logging.warning(f"Unknown action received: {data['action']}")
+            logging.warning("Unknown or invalid action received: %s", action)
         return
 
     # Send path: validate via pure function and use result
@@ -159,9 +161,14 @@ def on_mqtt_message(client, userdata, msg):
             client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
             logging.info(f'SMS sent to {num}')
         except Exception as e:
-            feedback = {"result":f'error : {e}', "datetime":time.strftime("%Y-%m-%d %H:%M:%S"), "number":num, "text":text}
+            logging.error("Send SMS failed for %s: %s", num, e)
+            feedback = {
+                "result": "error : send failed",
+                "datetime": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "number": num,
+                "text": text,
+            }
             client.publish(f"{mqttprefix}/sent", json.dumps(feedback, ensure_ascii=False))
-            logging.error(feedback['result'])
 
 # function used to parse received sms
 def loop_sms_receive():
