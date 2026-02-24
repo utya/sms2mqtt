@@ -119,6 +119,10 @@ Received SMS are published to topic **sms2mqtt/received** like this :
  - **sms2mqtt/datetime**: A payload containing current timestamp of the GSM device is published for every loop  
  E.g. `1634671168.531913`
 
+## Optional: SMS persistence
+
+To store received and sent SMS in PostgreSQL, use the optional [sms2mqtt-persistence](sms2mqtt-persistence/) service. It subscribes to `{prefix}/received` and `{prefix}/sent` and writes rows to a database. You can run it with Docker Compose: `docker compose -f docker-compose.persistence.yml --profile persistence up -d` (see [sms2mqtt-persistence/README.md](sms2mqtt-persistence/README.md)).
+
 # Troubleshoot
 ## Logs
 You need to have a look at logs using :  
