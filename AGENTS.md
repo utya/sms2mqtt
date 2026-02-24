@@ -24,7 +24,10 @@ sms2mqtt/
 ├── Dockerfile                # Main image: Python 3.11 Alpine + gammu, uv (no pip)
 ├── pyproject.toml            # Dependencies and Ruff config
 ├── uv.lock                    # Lockfile for reproducible installs
-├── README.md                 # Usage, env vars, topics, troubleshooting
+├── README.md                 # Landing page; details in docs/
+├── docs/                     # Getting started, configuration, MQTT topics, security, etc.
+├── compose.yml               # Main bridge (env_file, devices)
+├── compose.production.yml    # Production overlay
 ├── diagram.svg               # Architecture diagram
 ├── sms2mqtt.drawio           # Diagram source
 ├── docker-compose.persistence.yml  # Optional: postgres + sms2mqtt-persistence (profile)
@@ -62,7 +65,14 @@ sms2mqtt/
 
 | Document | Path | Description |
 |----------|------|-------------|
-| README | README.md | Install (Docker/Compose), env vars, all MQTT topics, security (TLS, secrets, ACL), troubleshoot, update |
+| README | README.md | Project landing page |
+| Getting Started | docs/getting-started.md | Prerequisites, install, verify |
+| Configuration | docs/configuration.md | Device and environment variables |
+| MQTT Topics | docs/mqtt-topics.md | Send, receive, status, control topics |
+| Security | docs/security.md | TLS, secrets, MQTT ACL |
+| Persistence | docs/persistence.md | Optional PostgreSQL storage |
+| Development | docs/development.md | uv, tests, lint |
+| Troubleshooting | docs/troubleshooting.md | Logs and updating |
 
 ## AI Context Files
 
