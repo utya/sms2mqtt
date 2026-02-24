@@ -1,4 +1,5 @@
 """Unit tests for send payload parsing and validation (no MQTT/Gammu)."""
+
 import json
 import sys
 import unittest
@@ -12,7 +13,7 @@ sys.modules["paho"] = paho_mock
 sys.modules["paho.mqtt"] = paho_mock
 sys.modules["paho.mqtt.client"] = paho_mock
 
-import sms2mqtt
+import sms2mqtt  # noqa: E402
 
 
 class TestValidateSendPayload(unittest.TestCase):
@@ -86,7 +87,7 @@ class TestValidateSendPayload(unittest.TestCase):
         self.assertIn("json", err["result"].lower())
 
     def test_non_utf8_returns_error_with_safe_payload(self):
-        payload = b'\xff\xfe not valid UTF-8 \x80'
+        payload = b"\xff\xfe not valid UTF-8 \x80"
         number, text, err = sms2mqtt.validate_send_payload(payload)
         self.assertIsNotNone(err)
         self.assertIn("result", err)

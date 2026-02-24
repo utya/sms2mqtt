@@ -2,6 +2,7 @@
 MQTT interface layer: callbacks, subscribe/publish, topic naming.
 Orchestrates logic (validation) and gammu_layer (send/receive/status); owns JSON and topics.
 """
+
 import json
 import logging
 import time
@@ -9,8 +10,8 @@ import time
 import certifi
 import paho.mqtt.client as mqtt
 
-from logic import validate_send_payload
 import gammu_layer as gammu_io
+from logic import validate_send_payload
 
 # Set by main after ctx is created; used by shutdown when signal fires
 _app_ctx = [None]
@@ -66,7 +67,9 @@ def on_mqtt_message(client, userdata, msg):
     gsm = ctx.gammusm
 
     try:
-        logging.debug("MQTT received on %s payload_len=%s", msg.topic, len(msg.payload) if msg.payload else 0)
+        logging.debug(
+            "MQTT received on %s payload_len=%s", msg.topic, len(msg.payload) if msg.payload else 0
+        )
         logging.info("MQTT message on topic: %s", msg.topic)
         payload = msg.payload.decode("utf-8")
         data = json.loads(payload, strict=False)
@@ -186,14 +189,16 @@ def loop_sms_receive(ctx) -> None:
                 )
                 ctx.client.publish(
                     f"{prefix}/stuck_status",
-                    json.dumps({
-                        "status": "stuck",
-                        "received_parts": len(sms),
-                        "expected_parts": sms[0]["UDH"]["AllParts"],
-                        "number": sms[0].get("Number", "unknown"),
-                        "datetime": str(sms[0].get("DateTime", "")),
-                        "locations": [s["Location"] for s in sms],
-                    }),
+                    json.dumps(
+                        {
+                            "status": "stuck",
+                            "received_parts": len(sms),
+                            "expected_parts": sms[0]["UDH"]["AllParts"],
+                            "number": sms[0].get("Number", "unknown"),
+                            "datetime": str(sms[0].get("DateTime", "")),
+                            "locations": [s["Location"] for s in sms],
+                        }
+                    ),
                 )
                 continue
         else:

@@ -1,6 +1,7 @@
 """
 Configuration from environment. Required: MQTT (HOST, PREFIX) and DB (PGHOST, PGDATABASE, PGUSER, PGPASSWORD).
 """
+
 import os
 from typing import Any
 

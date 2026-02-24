@@ -1,6 +1,7 @@
 """
 PostgreSQL connection helper for persistence.
 """
+
 import logging
 from typing import Any
 
@@ -24,7 +25,13 @@ def get_connection(db_config: dict[str, Any]) -> extensions.connection:
             password=db_config["password"],
         )
         conn.autocommit = False
-        logger.debug("DB connection opened to %s@%s:%s/%s", db_config["user"], db_config["host"], db_config["port"], db_config["database"])
+        logger.debug(
+            "DB connection opened to %s@%s:%s/%s",
+            db_config["user"],
+            db_config["host"],
+            db_config["port"],
+            db_config["database"],
+        )
         return conn
     except Exception as e:
         logger.error("DB connection failed: %s", e)

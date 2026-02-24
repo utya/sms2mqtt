@@ -1,6 +1,7 @@
 """
 Parse MQTT payloads (received/sent) and insert SMS rows into PostgreSQL.
 """
+
 import json
 import logging
 from typing import Any
@@ -47,7 +48,9 @@ def parse_sent(payload: dict) -> dict[str, Any] | None:
         return None
 
 
-def payload_to_row(topic: str, payload_bytes: bytes, device_id: str | None) -> dict[str, Any] | None:
+def payload_to_row(
+    topic: str, payload_bytes: bytes, device_id: str | None
+) -> dict[str, Any] | None:
     """
     Decode UTF-8, parse JSON, detect direction from topic suffix, return row dict or None.
     On parse error returns None (caller may log and optionally insert with result='parse_error').

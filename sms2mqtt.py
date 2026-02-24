@@ -2,6 +2,7 @@
 SMS-to-MQTT bridge: entry point and wiring.
 Builds config and context, initializes Gammu and MQTT, runs main loop.
 """
+
 import logging
 import os
 import signal
@@ -11,9 +12,9 @@ from types import SimpleNamespace
 import gammu
 import paho.mqtt.client as mqtt
 
-from logic import parse_log_level
 import gammu_layer as gammu_io
 import mqtt_layer
+from logic import parse_log_level
 
 
 def build_config_from_env() -> SimpleNamespace:
@@ -79,8 +80,13 @@ def build_runtime_context(config: SimpleNamespace) -> SimpleNamespace:
 
 
 # Re-export for tests and backward compatibility
-from logic import validate_send_payload, normalize_number  # noqa: E402
-from mqtt_layer import on_mqtt_connect, on_mqtt_disconnect, on_mqtt_message  # noqa: E402
+from logic import normalize_number, validate_send_payload  # noqa: E402, F401
+from mqtt_layer import (  # noqa: E402, F401
+    on_mqtt_connect,
+    on_mqtt_disconnect,
+    on_mqtt_message,
+)
+
 # For tests that call on_mqtt_disconnect(None, None, rc): mutable so they can assert mqtt_connected[0] is False
 mqtt_connected = mqtt_layer._compat_mqtt_connected
 

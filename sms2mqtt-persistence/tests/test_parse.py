@@ -1,11 +1,11 @@
 """Unit tests for payload parsing and row mapping. No MQTT or real DB."""
-import json
 
-import pytest
+import json
 
 # Import from parent package
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from persist import parse_received, parse_sent, payload_to_row
@@ -66,7 +66,9 @@ def test_parse_sent_missing_number():
 
 def test_payload_to_row_received_with_device_id():
     topic = "mybridge/received"
-    payload_bytes = json.dumps({"datetime": "2025-02-24 12:00:00", "number": "+7999", "text": "Hi"}).encode("utf-8")
+    payload_bytes = json.dumps(
+        {"datetime": "2025-02-24 12:00:00", "number": "+7999", "text": "Hi"}
+    ).encode("utf-8")
     row = payload_to_row(topic, payload_bytes, device_id="mybridge")
     assert row is not None
     assert row["direction"] == "received"
@@ -76,12 +78,14 @@ def test_payload_to_row_received_with_device_id():
 
 def test_payload_to_row_sent_with_device_id():
     topic = "sms2mqtt/sent"
-    payload_bytes = json.dumps({
-        "result": "success",
-        "datetime": "2025-02-24 12:00:00",
-        "number": "+7888",
-        "text": "Ok",
-    }).encode("utf-8")
+    payload_bytes = json.dumps(
+        {
+            "result": "success",
+            "datetime": "2025-02-24 12:00:00",
+            "number": "+7888",
+            "text": "Ok",
+        }
+    ).encode("utf-8")
     row = payload_to_row(topic, payload_bytes, device_id="sms2mqtt")
     assert row is not None
     assert row["direction"] == "sent"

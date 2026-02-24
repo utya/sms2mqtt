@@ -2,6 +2,7 @@
 Logic layer: validation, number normalization, no I/O.
 Pure functions for unit testing; no MQTT or Gammu dependencies.
 """
+
 import json
 import logging
 from typing import Optional, Tuple
@@ -47,7 +48,11 @@ def validate_send_payload(
     try:
         data = json.loads(payload_str, strict=False)
     except Exception as e:
-        return (None, None, {"result": f"error : failed to decode JSON ({e})", "payload": payload_str})
+        return (
+            None,
+            None,
+            {"result": f"error : failed to decode JSON ({e})", "payload": payload_str},
+        )
     number = None
     text = None
     for key, value in data.items():

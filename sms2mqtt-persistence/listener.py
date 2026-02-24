@@ -3,16 +3,16 @@
 SMS2MQTT Persistence — MQTT listener that writes received/sent SMS to PostgreSQL.
 Connects to MQTT, subscribes to {prefix}/received and {prefix}/sent, persists to DB (Task 5).
 """
+
 import logging
 import sys
 import time
 
 import certifi
 import paho.mqtt.client as mqtt
-
 from config import load_config, mask_password
 from db import get_connection
-from persist import payload_to_row, insert_sms
+from persist import insert_sms, payload_to_row
 
 
 def parse_log_level(value: str) -> int:
@@ -63,7 +63,11 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
         device_id = mq["prefix"]
         row = payload_to_row(msg.topic, msg.payload, device_id)
         if row is None:
-            logger.error("Parse failed for topic=%s payload=%s", msg.topic, msg.payload[:200] if len(msg.payload) < 200 else msg.payload[:200] + b"...")
+            logger.error(
+                "Parse failed for topic=%s payload=%s",
+                msg.topic,
+                msg.payload[:200] if len(msg.payload) < 200 else msg.payload[:200] + b"...",
+            )
             return
         db_config = config["db"]
         try:
@@ -71,9 +75,18 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
             try:
                 row_id = insert_sms(conn, row)
                 if row_id is not None:
-                    logger.debug("Persisted %s id=%s remote_number=%s", row["direction"], row_id, row["remote_number"])
+                    logger.debug(
+                        "Persisted %s id=%s remote_number=%s",
+                        row["direction"],
+                        row_id,
+                        row["remote_number"],
+                    )
                 else:
-                    logger.error("Insert failed for topic=%s remote_number=%s", msg.topic, row.get("remote_number"))
+                    logger.error(
+                        "Insert failed for topic=%s remote_number=%s",
+                        msg.topic,
+                        row.get("remote_number"),
+                    )
             finally:
                 conn.close()
         except Exception as e:
@@ -138,12 +151,21 @@ def main() -> None:
     db = config["db"]
     logger.debug(
         "config: MQTT host=%s port=%s prefix=%s user=%s password=%s use_tls=%s client_id=%s",
-        mq["host"], mq["port"], mq["prefix"], mq["user"] or "(none)",
-        mask_password(mq["password"]), mq["use_tls"], mq["client_id"],
+        mq["host"],
+        mq["port"],
+        mq["prefix"],
+        mq["user"] or "(none)",
+        mask_password(mq["password"]),
+        mq["use_tls"],
+        mq["client_id"],
     )
     logger.debug(
         "config: DB host=%s port=%s database=%s user=%s password=%s",
-        db["host"], db["port"], db["database"], db["user"], mask_password(db["password"]),
+        db["host"],
+        db["port"],
+        db["database"],
+        db["user"],
+        mask_password(db["password"]),
     )
     logger.info("Config loaded")
 

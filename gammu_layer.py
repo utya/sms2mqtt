@@ -2,6 +2,7 @@
 Gammu I/O layer: modem init, send/receive SMS, signal/battery/network/datetime.
 No MQTT, no topic names, no business logic — thin wrapper over gammu.
 """
+
 import gammu
 
 

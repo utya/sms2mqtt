@@ -1,4 +1,5 @@
 """Unit tests for LOG_LEVEL parsing and MQTT disconnect behaviour (no exit)."""
+
 import logging
 import sys
 import unittest
@@ -12,7 +13,7 @@ sys.modules["paho"] = paho_mock
 sys.modules["paho.mqtt"] = paho_mock
 sys.modules["paho.mqtt.client"] = paho_mock
 
-import sms2mqtt
+import sms2mqtt  # noqa: E402
 
 
 class TestParseLogLevel(unittest.TestCase):
