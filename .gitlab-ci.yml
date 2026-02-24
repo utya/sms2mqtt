@@ -1,4 +1,4 @@
-# CI: lint (Ruff) and tests (pytest). Runs on merge requests and default branch.
+# CI: lint (Ruff) and tests (pytest). Uses uv (no pip).
 image: python:3.11-slim
 
 stages:
@@ -13,27 +13,31 @@ workflow:
 default:
   interruptible: true
   before_script:
-    - pip install --quiet -r requirements-dev.txt
+    - apt-get update -qq && apt-get install -y -qq curl
+    - curl -LsSf https://astral.sh/uv/install.sh | sh
+    - export PATH="$HOME/.local/bin:$PATH"
+    - uv sync --extra dev
 
 variables:
-  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.cache/uv"
 
 cache:
   key:
     files:
-      - requirements-dev.txt
+      - uv.lock
+      - sms2mqtt-persistence/uv.lock
   paths:
-    - .cache/pip
+    - .cache/uv
   policy: pull-push
 
 lint:
   stage: lint
   script:
-    - ruff check .
-    - ruff format --check .
+    - uv run ruff check .
+    - uv run ruff format --check .
 
 test:
   stage: test
   script:
-    - pytest tests/ -v --tb=short
-    - PYTHONPATH=sms2mqtt-persistence pytest sms2mqtt-persistence/tests/ -v --tb=short
+    - uv run pytest tests/ -v --tb=short
+    - cd sms2mqtt-persistence && uv sync --extra dev && uv run pytest tests/ -v --tb=short

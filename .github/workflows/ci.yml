@@ -1,4 +1,4 @@
-# CI: lint (Ruff) and tests (pytest). No Docker build; see docker-publish-*.yml for images.
+# CI: lint (Ruff) and tests (pytest). Uses uv (no pip).
 name: CI
 
 on:
@@ -13,29 +13,29 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v4
         with:
           python-version: "3.11"
-          cache: "pip"
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install dependencies
+        run: uv sync --extra dev
       - name: Ruff check
-        run: ruff check .
+        run: uv run ruff check .
       - name: Ruff format
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
   test:
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v4
         with:
           python-version: "3.11"
-          cache: "pip"
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install root dependencies
+        run: uv sync --extra dev
       - name: Run root tests
-        run: pytest tests/ -v --tb=short
+        run: uv run pytest tests/ -v --tb=short
+      - name: Install persistence dependencies
+        run: cd sms2mqtt-persistence && uv sync --extra dev
       - name: Run persistence tests
-        run: PYTHONPATH=sms2mqtt-persistence pytest sms2mqtt-persistence/tests/ -v --tb=short
+        run: cd sms2mqtt-persistence && uv run pytest tests/ -v --tb=short
