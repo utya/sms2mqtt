@@ -6,6 +6,14 @@ on:
     branches: [master, main]
   pull_request:
     branches: [master, main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -13,9 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+      - run: uv python install "3.11"
       - name: Install dependencies
         run: uv sync --extra dev
       - name: Ruff check
@@ -28,9 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
         with:
-          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "**/uv.lock"
+      - run: uv python install "3.11"
       - name: Install root dependencies
         run: uv sync --extra dev
       - name: Run root tests

@@ -33,11 +33,21 @@ cache:
 lint:
   stage: lint
   script:
-    - uv run ruff check .
+    - uv run ruff check . --output-format=gitlab > gl-code-quality.json
     - uv run ruff format --check .
+  artifacts:
+    when: always
+    reports:
+      codequality: gl-code-quality.json
 
 test:
   stage: test
   script:
-    - uv run pytest tests/ -v --tb=short
-    - cd sms2mqtt-persistence && uv sync --extra dev && uv run pytest tests/ -v --tb=short
+    - uv run pytest tests/ -v --tb=short --junitxml=report.xml
+    - cd sms2mqtt-persistence && uv sync --extra dev && uv run pytest tests/ -v --tb=short --junitxml=report-persistence.xml
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - report.xml
+        - sms2mqtt-persistence/report-persistence.xml
