@@ -14,7 +14,7 @@ SMS-to-MQTT bridge: connects a GSM modem (via Gammu) to an MQTT broker. Sends an
 
 ## Tech Stack
 
-- **Language:** Python 3 (3.11 in Dockerfile; `requirements.txt` for pinned deps)
+- **Language:** Python 3 (3.11 in Dockerfile; uv — `pyproject.toml` + `uv.lock` for deps)
 - **Runtime:** Layered modules: `sms2mqtt.py` (entry), `logic.py`, `mqtt_layer.py`, `gammu_layer.py`
 - **Key libs:** paho-mqtt, python-gammu, certifi
 - **System:** Gammu (Alpine in Docker)

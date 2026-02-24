@@ -21,7 +21,9 @@ sms2mqtt/
 ├── logic.py                  # Validation, normalize_number, parse_log_level (no I/O)
 ├── mqtt_layer.py             # MQTT callbacks, publish/subscribe, loop_sms_receive, status
 ├── gammu_layer.py            # Gammu I/O: init, send_sms, fetch_sms_batch, signal/battery/network/datetime
-├── Dockerfile                # Main image: Python 3.11 Alpine + gammu, pip deps
+├── Dockerfile                # Main image: Python 3.11 Alpine + gammu, uv (no pip)
+├── pyproject.toml            # Dependencies and Ruff config
+├── uv.lock                    # Lockfile for reproducible installs
 ├── README.md                 # Usage, env vars, topics, troubleshooting
 ├── diagram.svg               # Architecture diagram
 ├── sms2mqtt.drawio           # Diagram source
@@ -30,8 +32,9 @@ sms2mqtt/
 │   ├── listener.py          # Entry point (MQTT subscribe + DB insert)
 │   ├── config.py, db.py, persist.py
 │   ├── schema.sql            # Table sms (direction, remote_number, device_id, …)
-│   ├── Dockerfile            # Separate image (no Gammu)
-│   ├── requirements.txt
+│   ├── Dockerfile            # Separate image (no Gammu), uv
+│   ├── pyproject.toml        # Dependencies
+│   ├── uv.lock
 │   └── tests/                # Unit tests (parse, row mapping)
 ├── .github/
 │   ├── workflows/            # CI: docker-publish-release.yml
@@ -50,7 +53,7 @@ sms2mqtt/
 | logic.py | Pure validation/normalize (unit-testable without mocks) |
 | mqtt_layer.py | MQTT callbacks, loop_sms_receive, status publish |
 | gammu_layer.py | Gammu init, send_sms, fetch_sms_batch, signal/battery/network/datetime |
-| Dockerfile | Main image; gammu, python-gammu, paho-mqtt, certifi |
+| Dockerfile | Main image; gammu, uv (pyproject.toml + uv.lock), python-gammu, paho-mqtt, certifi |
 | sms2mqtt-persistence/listener.py | Optional persistence entry; MQTT→PostgreSQL |
 | docker-compose.persistence.yml | Optional Compose: postgres + sms2mqtt-persistence (profile) |
 | .github/workflows/docker-publish-release.yml | Build and push main image on release (multi-arch) |

@@ -125,24 +125,27 @@ To store received and sent SMS in PostgreSQL, use the optional [sms2mqtt-persist
 
 # Development
 
-To run tests and lint locally (no GSM modem or MQTT required):
+Uses [uv](https://docs.astral.sh/uv/) for dependencies (no pip or requirements.txt). To run tests and lint locally (no GSM modem or MQTT required):
 
-1. **Install dev dependencies** (after base requirements if you need them for running the app):
+1. **Install uv** (if needed), then sync dependencies:
    ```bash
-   pip install -r requirements-dev.txt
+   uv sync --extra dev
    ```
-   For CI and tests only, `requirements-dev.txt` is enough (tests mock Gammu and MQTT).
+   For the optional persistence service:
+   ```bash
+   cd sms2mqtt-persistence && uv sync --extra dev
+   ```
 
 2. **Run tests:**
    ```bash
-   pytest tests/ -v
-   PYTHONPATH=sms2mqtt-persistence pytest sms2mqtt-persistence/tests/ -v
+   uv run pytest tests/ -v
+   cd sms2mqtt-persistence && uv run pytest tests/ -v
    ```
 
 3. **Run lint:**
    ```bash
-   ruff check .
-   ruff format --check .
+   uv run ruff check .
+   uv run ruff format --check .
    ```
 
 # Troubleshoot

@@ -41,11 +41,13 @@ With Docker Compose (see below), connect to the postgres container once and run 
 
 ## Run locally
 
+Uses [uv](https://docs.astral.sh/uv/) for dependencies. From this directory:
+
 ```bash
-pip install -r requirements.txt
+uv sync
 export HOST=localhost PREFIX=sms2mqtt
 export PGHOST=localhost PGDATABASE=sms2mqtt PGUSER=u PGPASSWORD=p
-python3 listener.py
+uv run python3 listener.py
 ```
 
 ## Run with Docker
@@ -71,8 +73,8 @@ Set `MQTT_HOST`, `MQTT_PREFIX`, etc. (or use defaults). The main sms2mqtt bridge
 ## Tests
 
 ```bash
-pip install -r requirements.txt
-python3 -m pytest tests/ -v
+uv sync --extra dev
+uv run pytest tests/ -v
 ```
 
 ---
