@@ -51,9 +51,9 @@ class TestOnMqttDisconnect(unittest.TestCase):
             mock_exit.assert_not_called()
 
     def test_disconnect_sets_mqtt_connected_false(self):
-        sms2mqtt.mqtt_connected = True
+        sms2mqtt.mqtt_connected[0] = True
         sms2mqtt.on_mqtt_disconnect(None, None, 5)
-        self.assertFalse(sms2mqtt.mqtt_connected)
+        self.assertFalse(sms2mqtt.mqtt_connected[0])
 
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@
 - [ ] **CI: tests and lint** — в GitHub Actions добавить job с установкой зависимостей, запуском тестов и линтера; ограничить публикацию dev-образа по ветке (например, dev/develop)
 - [x] **Operations** — добавить HEALTHCHECK в Dockerfile для оркестраторов
 - [x] **Optional: SMS persistence** — отдельный модуль (MQTT Listener): подписка на топики received/sent, запись сообщений в PostgreSQL; отдельная папка, отдельный образ, опциональный сервис в Docker Compose (можно не запускать)
-- [ ] **Code quality (optional)** — при рефакторинге уменьшить глобальное состояние (конфиг/колбэки); опционально: нормализация номера и лимиты длины текста
+- [x] **Code quality (optional)** — при рефакторинге уменьшить глобальное состояние (конфиг/колбэки); опционально: нормализация номера и лимиты длины текста
 - [ ] **Documentation and security** — в README: все переменные окружения (USETLS, DEVICE, DEVMODE), все топики (control, control_response, stuck_status), рекомендации по TLS и секретам, примечание про ACL для control
 
 ## Completed
@@ -26,3 +26,4 @@
 | Testing foundation | 2025-02-23 |
 | Operations | 2025-02-24 |
 | Optional: SMS persistence | 2025-02-24 |
+| Code quality (optional) | 2025-02-24 |

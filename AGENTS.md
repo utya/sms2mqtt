@@ -10,14 +10,17 @@ SMS-to-MQTT bridge: GSM modem (Gammu) ↔ MQTT broker for sending and receiving 
 
 - **Language:** Python 3
 - **Key libs:** paho-mqtt, python-gammu, certifi
-- **Runtime:** Single script, no framework
+- **Runtime:** Layered modules (entry + mqtt + gammu + logic), no framework
 - **Deploy:** Docker (Alpine), GitHub Actions
 
 ## Project Structure
 
 ```
 sms2mqtt/
-├── sms2mqtt.py               # Main application (MQTT + Gammu loop)
+├── sms2mqtt.py               # Entry point: config, wiring, main loop
+├── logic.py                  # Validation, normalize_number, parse_log_level (no I/O)
+├── mqtt_layer.py             # MQTT callbacks, publish/subscribe, loop_sms_receive, status
+├── gammu_layer.py            # Gammu I/O: init, send_sms, fetch_sms_batch, signal/battery/network/datetime
 ├── Dockerfile                # Main image: Python 3.11 Alpine + gammu, pip deps
 ├── README.md                 # Usage, env vars, topics, troubleshooting
 ├── diagram.svg               # Architecture diagram
@@ -43,7 +46,10 @@ sms2mqtt/
 
 | File | Purpose |
 |------|---------|
-| sms2mqtt.py | Main entry; MQTT client, Gammu init, receive/send/status loop |
+| sms2mqtt.py | Entry: config, Gammu/MQTT init, main loop; re-exports for tests |
+| logic.py | Pure validation/normalize (unit-testable without mocks) |
+| mqtt_layer.py | MQTT callbacks, loop_sms_receive, status publish |
+| gammu_layer.py | Gammu init, send_sms, fetch_sms_batch, signal/battery/network/datetime |
 | Dockerfile | Main image; gammu, python-gammu, paho-mqtt, certifi |
 | sms2mqtt-persistence/listener.py | Optional persistence entry; MQTT→PostgreSQL |
 | docker-compose.persistence.yml | Optional Compose: postgres + sms2mqtt-persistence (profile) |
