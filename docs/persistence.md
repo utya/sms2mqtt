@@ -7,7 +7,7 @@ To store received and sent SMS in PostgreSQL, use the optional **sms2mqtt-persis
 ## Run with Docker Compose
 
 ```bash
-docker compose -f docker-compose.persistence.yml --profile persistence up -d
+docker compose -f docker-compose.persistence.yml up -d
 ```
 
 This starts Postgres and the persistence listener. Configure MQTT and DB via environment variables (see [sms2mqtt-persistence/README.md](../sms2mqtt-persistence/README.md)).
@@ -32,7 +32,7 @@ If `docker compose ... up` fails with **connection timed out** while pulling `po
 2. **Use another Postgres image** via env (no code change):
    ```bash
    export POSTGRES_IMAGE=postgres:16-alpine
-   docker compose -f docker-compose.persistence.yml --profile persistence up -d
+   docker compose -f docker-compose.persistence.yml up -d
    ```
    Or set `POSTGRES_IMAGE` in your `.env`. Any Postgres 15+ Alpine image is compatible.
 

@@ -65,7 +65,7 @@ docker run -d --name sms2mqtt-persistence \
 Из корня репозитория можно поднять Postgres и этот сервис командой:
 
 ```bash
-docker compose -f docker-compose.persistence.yml --profile persistence up -d
+docker compose -f docker-compose.persistence.yml up -d
 ```
 
 Задайте `MQTT_HOST`, `MQTT_PREFIX` и т.д. (или используйте значения по умолчанию). Основной мост sms2mqtt в этот compose не входит — запускайте его отдельно. Примените `schema.sql` к сервису postgres до первого успешного запуска слушателя (например: `docker compose -f docker-compose.persistence.yml exec postgres psql -U sms2mqtt -d sms2mqtt -f - < sms2mqtt-persistence/schema.sql` или выполните один раз с хоста).

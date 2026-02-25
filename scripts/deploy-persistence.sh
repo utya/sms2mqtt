@@ -62,16 +62,16 @@ fi
 
 echo "--- Building image (sms2mqtt-persistence) ---"
 cd "$PERSISTENCE_STACK_DIR"
-docker compose -f compose.yml --profile persistence build $NO_CACHE
+docker compose -f compose.yml build $NO_CACHE
 
 echo "--- Stopping current containers ---"
-docker compose -f compose.yml --profile persistence down
+docker compose -f compose.yml down
 
 echo "--- Starting containers ---"
-docker compose -f compose.yml --profile persistence up -d
+docker compose -f compose.yml up -d
 
 echo "--- Pruning old images ---"
 docker image prune -f
 
 echo "--- Done. Status: ---"
-docker compose -f compose.yml --profile persistence ps
+docker compose -f compose.yml ps

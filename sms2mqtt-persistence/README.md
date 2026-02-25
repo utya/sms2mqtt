@@ -65,7 +65,7 @@ docker run -d --name sms2mqtt-persistence \
 From the repo root you can start Postgres + this listener with:
 
 ```bash
-docker compose -f docker-compose.persistence.yml --profile persistence up -d
+docker compose -f docker-compose.persistence.yml up -d
 ```
 
 Set `MQTT_HOST`, `MQTT_PREFIX`, etc. (or use defaults). The main sms2mqtt bridge is not included in that compose — run it separately. Apply `schema.sql` to the postgres service before the listener will succeed (e.g. `docker compose -f docker-compose.persistence.yml exec postgres psql -U sms2mqtt -d sms2mqtt -f - < sms2mqtt-persistence/schema.sql` or run once from host).

@@ -1,6 +1,6 @@
 # Optional SMS persistence: Postgres + MQTT listener.
 # Main sms2mqtt bridge is NOT included — run it separately or add to your compose.
-# Usage: docker compose -f docker-compose.persistence.yml --profile persistence up -d
+# Usage: docker compose -f docker-compose.persistence.yml up -d
 
 x-logging: &persistence-logging
   driver: "json-file"
@@ -18,8 +18,6 @@ services:
       POSTGRES_PASSWORD: ${PGPASSWORD:-sms2mqtt}
     volumes:
       - persistence_pgdata:/var/lib/postgresql/data
-    profiles:
-      - persistence
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sms2mqtt -d sms2mqtt"]
       interval: 5s
@@ -54,8 +52,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    profiles:
-      - persistence
     deploy:
       resources:
         limits:

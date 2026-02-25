@@ -148,7 +148,7 @@ services:
 
 ## Опционально: сохранение SMS в БД
 
-Чтобы сохранять входящие и отправленные SMS в PostgreSQL, используйте опциональный сервис [sms2mqtt-persistence](sms2mqtt-persistence/). Он подписывается на `{prefix}/received` и `{prefix}/sent` и пишет данные в БД. Запуск: `docker compose -f docker-compose.persistence.yml --profile persistence up -d` (подробнее в [sms2mqtt-persistence/README.md](sms2mqtt-persistence/README.md)).
+Чтобы сохранять входящие и отправленные SMS в PostgreSQL, используйте опциональный сервис [sms2mqtt-persistence](sms2mqtt-persistence/). Он подписывается на `{prefix}/received` и `{prefix}/sent` и пишет данные в БД. Запуск: `docker compose -f docker-compose.persistence.yml up -d` (подробнее в [sms2mqtt-persistence/README.md](sms2mqtt-persistence/README.md)).
 
 ## Безопасность
 
