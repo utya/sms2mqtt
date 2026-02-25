@@ -1,11 +1,20 @@
 #!/usr/bin/env python3
 """
 SMS2MQTT Persistence — MQTT listener that writes received/sent SMS to PostgreSQL.
-Connects to MQTT, subscribes to {prefix}/received and {prefix}/sent, persists to DB (Task 5).
+
+Design:
+- MQTT client runs in a background thread via loop_start(), so the network loop is
+  never blocked by DB writes. This keeps the connection alive (keepalive pings) and
+  avoids broker timeouts that caused repeated "Unspecified error" disconnects.
+- on_message only enqueues (topic, payload); a single main thread drains the queue
+  and writes to the DB. Bursts of messages are buffered in the queue so slow DB
+  writes do not block the MQTT loop or cause message loss.
 """
 
 import logging
+import queue
 import sys
+import threading
 import time
 
 import certifi
@@ -13,6 +22,9 @@ import paho.mqtt.client as mqtt
 from config import load_config, mask_password
 from db import get_connection
 from persist import insert_sms, payload_to_row
+
+# Max messages to buffer when DB is slow; drop oldest would require a different queue policy.
+MQ_MAX_SIZE = 10_000
 
 
 def parse_log_level(value: str) -> int:
@@ -38,15 +50,17 @@ def setup_mqtt_ssl(client: mqtt.Client, use_tls: bool) -> None:
 
 
 def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
-    """Create MQTT client, connect, subscribe, run loop with reconnect backoff."""
+    """Run MQTT in a background thread (loop_start), main thread drains queue and writes to DB."""
     mq = config["mqtt"]
-    state = {"connected": False}
+    state = {"connected": False, "lock": threading.Lock()}
+    msg_queue: queue.Queue[tuple[str, bytes]] = queue.Queue(maxsize=MQ_MAX_SIZE)
 
     def on_connect(
         client: mqtt.Client, userdata: dict, flags: dict, reason_code, properties
     ) -> None:
         """Callback for MQTT connect (paho-mqtt CallbackAPIVersion.VERSION2)."""
-        state["connected"] = True
+        with state["lock"]:
+            state["connected"] = True
         rc = getattr(reason_code, "value", reason_code)
         if rc == 0:
             logger.info("Connected to MQTT host")
@@ -61,44 +75,19 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
         client: mqtt.Client, userdata: dict, disconnect_flags, reason_code, properties
     ) -> None:
         """Callback for MQTT disconnect (paho-mqtt CallbackAPIVersion.VERSION2)."""
-        state["connected"] = False
+        with state["lock"]:
+            state["connected"] = False
         logger.info("Disconnected from MQTT host")
         rc = getattr(reason_code, "value", reason_code)
         if rc != 0:
             logger.warning("Unexpected disconnect, reason code: %s", reason_code)
 
     def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> None:
-        device_id = mq["prefix"]
-        row = payload_to_row(msg.topic, msg.payload, device_id)
-        if row is None:
-            logger.error(
-                "Parse failed for topic=%s payload=%s",
-                msg.topic,
-                msg.payload[:200] if len(msg.payload) < 200 else msg.payload[:200] + b"...",
-            )
-            return
-        db_config = config["db"]
+        """Enqueue only; do not block with DB I/O so the network thread stays responsive."""
         try:
-            conn = get_connection(db_config)
-            try:
-                row_id = insert_sms(conn, row)
-                if row_id is not None:
-                    logger.debug(
-                        "Persisted %s id=%s remote_number=%s",
-                        row["direction"],
-                        row_id,
-                        row["remote_number"],
-                    )
-                else:
-                    logger.error(
-                        "Insert failed for topic=%s remote_number=%s",
-                        msg.topic,
-                        row.get("remote_number"),
-                    )
-            finally:
-                conn.close()
-        except Exception as e:
-            logger.error("DB error on message topic=%s: %s", msg.topic, e)
+            msg_queue.put_nowait((msg.topic, msg.payload))
+        except queue.Full:
+            logger.error("Message queue full, dropping topic=%s", msg.topic)
 
     client = mqtt.Client(
         mqtt.CallbackAPIVersion.VERSION2,
@@ -112,7 +101,6 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
     client.on_message = on_message
     client.user_data_set(state)
 
-    # Keepalive: send PINGREQ regularly so broker does not close the connection.
     keepalive_sec = 60
     try:
         client.connect(mq["host"], mq["port"], keepalive=keepalive_sec)
@@ -120,30 +108,75 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
         logger.error("MQTT connection failed: %s", e)
         raise
 
-    state["connected"] = True
+    with state["lock"]:
+        state["connected"] = True
+    client.loop_start()
+
     reconnect_delay_sec = 2.0
     last_reconnect_attempt = 0.0
     reconnect_attempt = 0
-    loop_timeout = 0.2  # Call loop often so keepalive pings and I/O are processed
+    db_config = config["db"]
+    device_id = mq["prefix"]
 
-    while True:
-        if not state["connected"]:
-            now = time.time()
-            if now - last_reconnect_attempt >= reconnect_delay_sec:
-                reconnect_attempt += 1
-                last_reconnect_attempt = now
-                logger.debug("Reconnecting to MQTT (attempt %d)", reconnect_attempt)
+    try:
+        while True:
+            # Reconnect if the background loop detected a disconnect.
+            with state["lock"]:
+                connected = state["connected"]
+            if not connected:
+                now = time.time()
+                if now - last_reconnect_attempt >= reconnect_delay_sec:
+                    reconnect_attempt += 1
+                    last_reconnect_attempt = now
+                    logger.debug("Reconnecting to MQTT (attempt %d)", reconnect_attempt)
+                    try:
+                        client.reconnect()
+                        logger.info("Reconnected to MQTT")
+                        reconnect_delay_sec = 2.0
+                        reconnect_attempt = 0
+                    except Exception as e:
+                        logger.warning("MQTT reconnect failed: %s", e)
+                        reconnect_delay_sec = min(reconnect_delay_sec * 2, 30.0)
+                time.sleep(0.5)
+                continue
+
+            # Drain queue: write to DB (main thread only; does not block MQTT loop).
+            try:
+                topic, payload = msg_queue.get(timeout=0.5)
+            except queue.Empty:
+                continue
+
+            row = payload_to_row(topic, payload, device_id)
+            if row is None:
+                logger.error(
+                    "Parse failed for topic=%s payload=%s",
+                    topic,
+                    payload[:200] if len(payload) < 200 else payload[:200] + b"...",
+                )
+                continue
+            try:
+                conn = get_connection(db_config)
                 try:
-                    client.reconnect()
-                    logger.info("Reconnected to MQTT")
-                    reconnect_delay_sec = 2.0
-                    reconnect_attempt = 0
-                except Exception as e:
-                    logger.warning("MQTT reconnect failed: %s", e)
-                    reconnect_delay_sec = min(reconnect_delay_sec * 2, 30.0)
-            else:
-                time.sleep(loop_timeout)
-        client.loop(timeout=loop_timeout)
+                    row_id = insert_sms(conn, row)
+                    if row_id is not None:
+                        logger.debug(
+                            "Persisted %s id=%s remote_number=%s",
+                            row["direction"],
+                            row_id,
+                            row["remote_number"],
+                        )
+                    else:
+                        logger.error(
+                            "Insert failed for topic=%s remote_number=%s",
+                            topic,
+                            row.get("remote_number"),
+                        )
+                finally:
+                    conn.close()
+            except Exception as e:
+                logger.error("DB error on message topic=%s: %s", topic, e)
+    finally:
+        client.loop_stop()
 
 
 def main() -> None:
