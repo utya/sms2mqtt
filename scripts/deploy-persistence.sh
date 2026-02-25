@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Deploy script for persistence stack (Postgres + sms2mqtt-persistence). No CI/CD.
-# Pulls latest changes, rebuilds listener image, recreates containers.
+# Copies persistence compose and app into a stack directory so Dockge can show the stack,
+# then pulls, builds, and recreates containers.
 # Usage:
 #   ./scripts/deploy-persistence.sh              # from repo root
 #   ./scripts/deploy-persistence.sh --no-cache   # full rebuild without cache
 #   ./scripts/deploy-persistence.sh main         # pull branch 'main' (default: current branch)
 #
-# Requires: git, docker, docker compose. Run from repo root or scripts/ directory.
-# Optional: .env in repo root (PGPASSWORD, MQTT_*, LOG_LEVEL — see docker-compose.persistence.yml).
+# Stack directory (where compose is copied so Dockge picks it up):
+#   - If DOCKGE_STACKS_DIR is set: $DOCKGE_STACKS_DIR/sms2mqtt-persistence
+#   - Else: sibling of repo, e.g. /opt/stacks/sms2mqtt-persistence when repo is /opt/stacks/sms2mqtt
+# Optional: .env in repo root (PGPASSWORD, MQTT_*, LOG_LEVEL); copied to stack dir for compose.
 
 set -e
 
@@ -31,11 +34,13 @@ for arg in "$@"; do
   fi
 done
 
-COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-sms2mqtt}"
-COMPOSE_CMD="docker compose -f $COMPOSE_FILE --profile persistence"
+# Where Dockge (or sibling folder) expects the stack: one folder = one stack
+STACKS_PARENT="${DOCKGE_STACKS_DIR:-$(dirname "$ROOT_DIR")}"
+PERSISTENCE_STACK_DIR="$STACKS_PARENT/sms2mqtt-persistence"
 
-echo "=== Deploy persistence ($COMPOSE_PROJECT_NAME) ==="
-echo "Root: $ROOT_DIR"
+echo "=== Deploy persistence ==="
+echo "Repo root: $ROOT_DIR"
+echo "Stack dir (for Dockge): $PERSISTENCE_STACK_DIR"
 echo "Branch: ${BRANCH:-$(git branch --show-current)}"
 echo "---"
 
@@ -47,17 +52,26 @@ else
   git pull
 fi
 
+echo "--- Copying compose and app into stack dir ---"
+mkdir -p "$PERSISTENCE_STACK_DIR"
+cp "$COMPOSE_FILE" "$PERSISTENCE_STACK_DIR/compose.yml"
+cp -r sms2mqtt-persistence "$PERSISTENCE_STACK_DIR/"
+if [[ -f .env ]]; then
+  cp .env "$PERSISTENCE_STACK_DIR/.env"
+fi
+
 echo "--- Building image (sms2mqtt-persistence) ---"
-$COMPOSE_CMD build $NO_CACHE
+cd "$PERSISTENCE_STACK_DIR"
+docker compose -f compose.yml --profile persistence build $NO_CACHE
 
 echo "--- Stopping current containers ---"
-$COMPOSE_CMD down
+docker compose -f compose.yml --profile persistence down
 
 echo "--- Starting containers ---"
-$COMPOSE_CMD up -d
+docker compose -f compose.yml --profile persistence up -d
 
 echo "--- Pruning old images ---"
 docker image prune -f
 
 echo "--- Done. Status: ---"
-$COMPOSE_CMD ps
+docker compose -f compose.yml --profile persistence ps

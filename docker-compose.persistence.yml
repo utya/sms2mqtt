@@ -10,7 +10,8 @@ x-logging: &persistence-logging
 
 services:
   postgres:
-    image: postgres:17-alpine
+    # Override with POSTGRES_IMAGE if pull from Docker Hub times out (e.g. mirror or postgres:16-alpine).
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
     environment:
       POSTGRES_DB: sms2mqtt
       POSTGRES_USER: sms2mqtt
