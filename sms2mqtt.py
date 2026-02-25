@@ -74,6 +74,7 @@ def build_runtime_context(config: SimpleNamespace) -> SimpleNamespace:
         old_battery_charge="",
         old_network_info="",
         old_time=time.time(),
+        last_signal_publish_time=0.0,
     )
     logging.info("Context initialized")
     return ctx

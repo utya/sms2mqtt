@@ -212,12 +212,21 @@ def loop_sms_receive(ctx) -> None:
                 logging.error("Unable to delete unsupported SMS: %s", e)
 
 
+# Minimum interval (seconds) between signal/battery/network publishes to avoid log spam
+STATUS_PUBLISH_INTERVAL_SEC = 15
+
+
 def get_signal_info(ctx) -> None:
     try:
         signal_info = gammu_io.get_signal_quality(ctx.gammusm)
-        if signal_info != ctx.old_signal_info:
+        if signal_info == ctx.old_signal_info:
+            return
+        last = getattr(ctx, "last_signal_publish_time", 0)
+        now = time.time()
+        if last == 0 or (now - last) >= STATUS_PUBLISH_INTERVAL_SEC:
             ctx.client.publish(f"{ctx.config.prefix}/signal", json.dumps(signal_info))
             ctx.old_signal_info = signal_info
+            ctx.last_signal_publish_time = now
             logging.info("Signal info published")
     except Exception as e:
         logging.error("Unable to check signal quality: %s", e)
