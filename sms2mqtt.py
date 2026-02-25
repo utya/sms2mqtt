@@ -70,6 +70,7 @@ def build_runtime_context(config: SimpleNamespace) -> SimpleNamespace:
         last_reconnect_attempt=0.0,
         stuck_sms_detected=False,
         last_stuck_sms=[],
+        last_stuck_locations=None,
         old_signal_info="",
         old_battery_charge="",
         old_network_info="",

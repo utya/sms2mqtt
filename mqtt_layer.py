@@ -104,6 +104,7 @@ def on_mqtt_message(client, userdata, msg):
             client.publish(f"{prefix}/control_response", json.dumps(result))
             ctx.last_stuck_sms.clear()
             ctx.stuck_sms_detected = False
+            ctx.last_stuck_locations = None
             logging.info("Stuck SMS deleted: %s", deleted)
         else:
             logging.warning("Unknown or invalid action received: %s", action)
@@ -215,23 +216,30 @@ def loop_sms_receive(ctx) -> None:
             else:
                 ctx.stuck_sms_detected = True
                 ctx.last_stuck_sms.extend(sms)
+                locations = tuple(sorted(s["Location"] for s in sms))
+                # Publish stuck_status only when this stuck set is new or changed (avoid spamming topic every loop)
+                last_loc = getattr(ctx, "last_stuck_locations", None)
+                if locations != last_loc:
+                    ctx.last_stuck_locations = locations
+                    payload = {
+                        "status": "stuck",
+                        "received_parts": len(sms),
+                        "expected_parts": sms[0]["UDH"]["AllParts"],
+                        "number": sms[0].get("Number", "unknown"),
+                        "datetime": str(sms[0].get("DateTime", "")),
+                        "locations": [s["Location"] for s in sms],
+                    }
+                    ctx.client.publish(f"{prefix}/stuck_status", json.dumps(payload))
+                    logging.info(
+                        "[FIX] Published stuck_status once for incomplete multipart (%s/%s), locations=%s",
+                        len(sms),
+                        sms[0]["UDH"]["AllParts"],
+                        list(locations),
+                    )
                 logging.info(
                     "Incomplete multipart SMS (%s/%s): waiting for parts",
                     len(sms),
                     sms[0]["UDH"]["AllParts"],
-                )
-                ctx.client.publish(
-                    f"{prefix}/stuck_status",
-                    json.dumps(
-                        {
-                            "status": "stuck",
-                            "received_parts": len(sms),
-                            "expected_parts": sms[0]["UDH"]["AllParts"],
-                            "number": sms[0].get("Number", "unknown"),
-                            "datetime": str(sms[0].get("DateTime", "")),
-                            "locations": [s["Location"] for s in sms],
-                        }
-                    ),
                 )
                 continue
         else:
@@ -240,6 +248,9 @@ def loop_sms_receive(ctx) -> None:
                 gammu_io.delete_sms(ctx.gammusm, 0, sms[0]["Location"])
             except Exception as e:
                 logging.error("Unable to delete unsupported SMS: %s", e)
+
+    if not ctx.stuck_sms_detected:
+        ctx.last_stuck_locations = None
 
 
 # Minimum interval (seconds) between signal/battery/network publishes to avoid log spam
