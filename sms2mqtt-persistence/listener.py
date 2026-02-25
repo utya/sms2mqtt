@@ -112,8 +112,10 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
     client.on_message = on_message
     client.user_data_set(state)
 
+    # Keepalive: send PINGREQ regularly so broker does not close the connection.
+    keepalive_sec = 60
     try:
-        client.connect(mq["host"], mq["port"])
+        client.connect(mq["host"], mq["port"], keepalive=keepalive_sec)
     except Exception as e:
         logger.error("MQTT connection failed: %s", e)
         raise
@@ -122,9 +124,9 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
     reconnect_delay_sec = 2.0
     last_reconnect_attempt = 0.0
     reconnect_attempt = 0
+    loop_timeout = 0.2  # Call loop often so keepalive pings and I/O are processed
 
     while True:
-        time.sleep(1)
         if not state["connected"]:
             now = time.time()
             if now - last_reconnect_attempt >= reconnect_delay_sec:
@@ -139,7 +141,9 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
                 except Exception as e:
                     logger.warning("MQTT reconnect failed: %s", e)
                     reconnect_delay_sec = min(reconnect_delay_sec * 2, 30.0)
-        client.loop()
+            else:
+                time.sleep(loop_timeout)
+        client.loop(timeout=loop_timeout)
 
 
 def main() -> None:
