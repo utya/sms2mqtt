@@ -34,7 +34,8 @@ def setup_mqtt_ssl(client: mqtt.Client, use_tls: bool = False) -> None:
         raise SystemExit(1)
 
 
-def on_mqtt_connect(client, userdata, flags, rc):
+def on_mqtt_connect(client, userdata, flags, reason_code, properties):
+    """Callback for MQTT connect (paho-mqtt CallbackAPIVersion.VERSION2)."""
     prefix = userdata.config.prefix if userdata else "sms2mqtt"
     if userdata:
         userdata.mqtt_connected = True
@@ -48,14 +49,16 @@ def on_mqtt_connect(client, userdata, flags, rc):
     logging.info("Subscribed to %s/send and %s/control", prefix, prefix)
 
 
-def on_mqtt_disconnect(client, userdata, rc):
+def on_mqtt_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+    """Callback for MQTT disconnect (paho-mqtt CallbackAPIVersion.VERSION2)."""
     if userdata:
         userdata.mqtt_connected = False
     else:
         _compat_mqtt_connected[0] = False
     logging.info("Disconnected from MQTT host")
+    rc = getattr(reason_code, "value", reason_code)
     if rc != 0:
-        logging.warning("Unexpected disconnect, reason code: %s", rc)
+        logging.warning("Unexpected disconnect, reason code: %s", reason_code)
 
 
 def on_mqtt_message(client, userdata, msg):

@@ -47,13 +47,15 @@ class TestOnMqttDisconnect(unittest.TestCase):
     """Ensure on_mqtt_disconnect does not call exit (reconnection behaviour)."""
 
     def test_disconnect_does_not_call_exit(self):
+        # VERSION2 signature: (client, userdata, disconnect_flags, reason_code, properties)
         with patch.object(sys, "exit") as mock_exit:
-            sms2mqtt.on_mqtt_disconnect(None, None, 0)
+            sms2mqtt.on_mqtt_disconnect(None, None, 0, 0, None)
             mock_exit.assert_not_called()
 
     def test_disconnect_sets_mqtt_connected_false(self):
+        # VERSION2 signature: (client, userdata, disconnect_flags, reason_code, properties)
         sms2mqtt.mqtt_connected[0] = True
-        sms2mqtt.on_mqtt_disconnect(None, None, 5)
+        sms2mqtt.on_mqtt_disconnect(None, None, 0, 5, None)
         self.assertFalse(sms2mqtt.mqtt_connected[0])
 
 

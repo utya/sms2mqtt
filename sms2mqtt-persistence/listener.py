@@ -42,8 +42,12 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
     mq = config["mqtt"]
     state = {"connected": False}
 
-    def on_connect(client: mqtt.Client, userdata: dict, flags: dict, rc: int) -> None:
+    def on_connect(
+        client: mqtt.Client, userdata: dict, flags: dict, reason_code, properties
+    ) -> None:
+        """Callback for MQTT connect (paho-mqtt CallbackAPIVersion.VERSION2)."""
         state["connected"] = True
+        rc = getattr(reason_code, "value", reason_code)
         if rc == 0:
             logger.info("Connected to MQTT host")
             prefix = mq["prefix"]
@@ -51,13 +55,17 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
             client.subscribe(f"{prefix}/sent")
             logger.debug("Subscribed to %s/received and %s/sent", prefix, prefix)
         else:
-            logger.error("MQTT connect failed, rc=%s", rc)
+            logger.error("MQTT connect failed, rc=%s", reason_code)
 
-    def on_disconnect(client: mqtt.Client, userdata: dict, rc: int) -> None:
+    def on_disconnect(
+        client: mqtt.Client, userdata: dict, disconnect_flags, reason_code, properties
+    ) -> None:
+        """Callback for MQTT disconnect (paho-mqtt CallbackAPIVersion.VERSION2)."""
         state["connected"] = False
         logger.info("Disconnected from MQTT host")
+        rc = getattr(reason_code, "value", reason_code)
         if rc != 0:
-            logger.warning("Unexpected disconnect, reason code: %s", rc)
+            logger.warning("Unexpected disconnect, reason code: %s", reason_code)
 
     def on_message(client: mqtt.Client, userdata: dict, msg: mqtt.MQTTMessage) -> None:
         device_id = mq["prefix"]
@@ -92,7 +100,10 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
         except Exception as e:
             logger.error("DB error on message topic=%s: %s", msg.topic, e)
 
-    client = mqtt.Client(mq.get("client_id") or "sms2mqtt-persistence")
+    client = mqtt.Client(
+        mqtt.CallbackAPIVersion.VERSION2,
+        mq.get("client_id") or "sms2mqtt-persistence",
+    )
     if mq.get("user") or mq.get("password"):
         client.username_pw_set(mq.get("user") or "", mq.get("password") or "")
     setup_mqtt_ssl(client, mq.get("use_tls", False))

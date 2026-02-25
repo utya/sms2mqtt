@@ -87,7 +87,7 @@ from mqtt_layer import (  # noqa: E402, F401
     on_mqtt_message,
 )
 
-# For tests that call on_mqtt_disconnect(None, None, rc): mutable so they can assert mqtt_connected[0] is False
+# For tests: mutable so they can assert mqtt_connected[0] is False (VERSION2: on_mqtt_disconnect(client, userdata, flags, reason_code, properties))
 mqtt_connected = mqtt_layer._compat_mqtt_connected
 
 if __name__ == "__main__":
@@ -137,7 +137,7 @@ if __name__ == "__main__":
         gammusm.SetDateTime(datetime.now())
     logging.info("Gammu initialized")
 
-    client = mqtt.Client(config.client_id)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, config.client_id)
     client.username_pw_set(config.user, config.password)
     mqtt_layer.setup_mqtt_ssl(client, config.use_tls)
 
