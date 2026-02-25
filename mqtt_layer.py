@@ -142,6 +142,32 @@ def on_mqtt_message(client, userdata, msg):
             client.publish(f"{prefix}/sent", json.dumps(feedback, ensure_ascii=False))
 
 
+# QoS 1 for received so messages are not lost on brief disconnect (QoS 0 can drop silently)
+RECEIVED_PUBLISH_QOS = 1
+
+
+def _publish_received(ctx, prefix: str, payload: str, kind: str) -> bool:
+    """Publish one received SMS to MQTT with QoS 1; log [FIX] on failure. Returns True if queued successfully."""
+    topic = f"{prefix}/received"
+    try:
+        msg_info = ctx.client.publish(topic, payload, qos=RECEIVED_PUBLISH_QOS)
+        if msg_info.rc != 0:
+            logging.error(
+                "[FIX] Publish to %s failed (rc=%s), %s SMS not delivered to MQTT",
+                topic,
+                msg_info.rc,
+                kind,
+            )
+            return False
+        # Flush so the message is sent before we continue (reduces chance of loss on disconnect)
+        ctx.client.loop(timeout=0.1)
+        logging.debug("[FIX] Published %s SMS to %s (mid=%s)", kind, topic, getattr(msg_info, "mid", None))
+        return True
+    except Exception as e:
+        logging.error("[FIX] Publish to %s raised: %s", topic, e, exc_info=True)
+        return False
+
+
 def loop_sms_receive(ctx) -> None:
     """Fetch SMS from modem, publish to MQTT, update stuck state."""
     logging.debug("loop_sms_receive start")
@@ -163,12 +189,14 @@ def loop_sms_receive(ctx) -> None:
                 "text": sms[0]["Text"],
             }
             payload = json.dumps(message, ensure_ascii=False)
-            ctx.client.publish(f"{prefix}/received", payload)
-            logging.info("Received SMS: %s", payload)
-            try:
-                gammu_io.delete_sms(ctx.gammusm, 0, sms[0]["Location"])
-            except Exception as e:
-                logging.error("Unable to delete SMS: %s", e)
+            if _publish_received(ctx, prefix, payload, "single"):
+                logging.info("Received SMS: %s", payload)
+                try:
+                    gammu_io.delete_sms(ctx.gammusm, 0, sms[0]["Location"])
+                except Exception as e:
+                    logging.error("Unable to delete SMS: %s", e)
+            else:
+                logging.warning("[FIX] Skipping delete: single SMS will be retried next loop")
         elif sms[0]["UDH"]["AllParts"] != -1:
             if len(sms) == sms[0]["UDH"]["AllParts"]:
                 decodedsms = gammu_io.decode_sms(sms)
@@ -178,10 +206,12 @@ def loop_sms_receive(ctx) -> None:
                     "text": decodedsms["Entries"][0]["Buffer"],
                 }
                 payload = json.dumps(message, ensure_ascii=False)
-                ctx.client.publish(f"{prefix}/received", payload)
-                logging.info("Received multipart SMS: %s", payload)
-                for part in sms:
-                    gammu_io.delete_sms(ctx.gammusm, 0, part["Location"])
+                if _publish_received(ctx, prefix, payload, "multipart"):
+                    logging.info("Received multipart SMS: %s", payload)
+                    for part in sms:
+                        gammu_io.delete_sms(ctx.gammusm, 0, part["Location"])
+                else:
+                    logging.warning("[FIX] Skipping delete: multipart SMS will be retried next loop")
             else:
                 ctx.stuck_sms_detected = True
                 ctx.last_stuck_sms.extend(sms)
