@@ -56,9 +56,18 @@ echo "--- Copying compose and app into stack dir ---"
 mkdir -p "$PERSISTENCE_STACK_DIR"
 cp "$COMPOSE_FILE" "$PERSISTENCE_STACK_DIR/compose.yml"
 cp -r sms2mqtt-persistence "$PERSISTENCE_STACK_DIR/"
+# Build stack .env: copy repo .env and force COMPOSE_PROJECT_NAME from SMS2MQTT_PERSISTENCE so persistence does not stop the main bridge
 if [[ -f .env ]]; then
   cp .env "$PERSISTENCE_STACK_DIR/.env"
 fi
+PERSISTENCE_PROJECT="sms2mqtt-persistence"
+if [[ -f .env ]]; then
+  v=$(grep -E '^SMS2MQTT_PERSISTENCE=' .env 2>/dev/null | cut -d= -f2-)
+  [[ -n "$v" ]] && PERSISTENCE_PROJECT="$v"
+fi
+{ grep -v '^COMPOSE_PROJECT_NAME=' "$PERSISTENCE_STACK_DIR/.env" 2>/dev/null || true
+  echo "COMPOSE_PROJECT_NAME=$PERSISTENCE_PROJECT"
+} > "$PERSISTENCE_STACK_DIR/.env.tmp" && mv "$PERSISTENCE_STACK_DIR/.env.tmp" "$PERSISTENCE_STACK_DIR/.env"
 
 echo "--- Building image (sms2mqtt-persistence) ---"
 cd "$PERSISTENCE_STACK_DIR"

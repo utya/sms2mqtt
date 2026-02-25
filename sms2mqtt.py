@@ -17,6 +17,7 @@ import gammu_layer as gammu_io
 import mqtt_layer
 from logic import parse_log_level
 
+
 def build_config_from_env() -> SimpleNamespace:
     """Build config from environment. No secrets in logs."""
     logging.debug("Building config from env")

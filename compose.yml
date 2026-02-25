@@ -1,6 +1,6 @@
 # Main SMS-to-MQTT bridge. MQTT broker runs elsewhere (host or separate container).
 # Optional persistence: docker compose -f docker-compose.persistence.yml up -d
-name: ${COMPOSE_PROJECT_NAME:-sms2mqtt}
+name: ${SMS2MQTT_BRIDGE:-sms2mqtt}
 
 services:
   sms2mqtt:

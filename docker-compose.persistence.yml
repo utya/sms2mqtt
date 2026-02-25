@@ -2,7 +2,7 @@
 # Main sms2mqtt bridge is NOT included — run it separately or add to your compose.
 # Usage: docker compose -f docker-compose.persistence.yml up -d
 # Separate project name so starting this stack does not stop the main sms2mqtt bridge.
-name: sms2mqtt-persistence
+name: ${SMS2MQTT_PERSISTENCE:-sms2mqtt-persistence}
 
 x-logging: &persistence-logging
   driver: "json-file"
