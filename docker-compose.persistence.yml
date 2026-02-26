@@ -20,6 +20,8 @@ services:
       POSTGRES_PASSWORD: ${PGPASSWORD:-sms2mqtt}
     volumes:
       - persistence_pgdata:/var/lib/postgresql/data
+      # Run schema on first start when DB is empty (initdb.d runs only on fresh data dir)
+      - ./sms2mqtt-persistence/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sms2mqtt -d sms2mqtt"]
       interval: 5s

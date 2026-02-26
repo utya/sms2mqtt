@@ -20,7 +20,7 @@ import time
 import certifi
 import paho.mqtt.client as mqtt
 from config import load_config, mask_password
-from db import get_connection
+from db import ensure_schema, get_connection
 from persist import insert_sms, payload_to_row
 
 # Max messages to buffer when DB is slow; drop oldest would require a different queue policy.
@@ -223,6 +223,8 @@ def main() -> None:
     except Exception as e:
         logger.error("DB connection failed at startup: %s", e)
         sys.exit(1)
+
+    ensure_schema(config["db"])
 
     run_mqtt_loop(config, logger)
 
