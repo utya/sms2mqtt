@@ -46,6 +46,18 @@ def load_config() -> dict[str, Any]:
             "Set MQTT (HOST, PREFIX) and DB (PGHOST, PGDATABASE, PGUSER, PGPASSWORD)."
         )
 
+    api_port_str = get_env("API_PORT", "0")
+    api_port = int(api_port_str) if api_port_str.isdigit() else 0
+    firebase_credentials = get_env("FIREBASE_CREDENTIALS") or get_env("GOOGLE_APPLICATION_CREDENTIALS")
+    push_enabled = get_env("PUSH_ENABLED", "true").lower() in ("true", "1", "yes")
+    push_on_sent = get_env("PUSH_ON_SENT", "false").lower() in ("true", "1", "yes")
+
+    if api_port and not firebase_credentials:
+        raise SystemExit(
+            "API_PORT is set but FIREBASE_CREDENTIALS (or GOOGLE_APPLICATION_CREDENTIALS) is missing. "
+            "Set path to Firebase service account JSON file."
+        )
+
     return {
         "mqtt": {
             "host": mqtt_host,
@@ -64,6 +76,10 @@ def load_config() -> dict[str, Any]:
             "password": pg_password,
         },
         "log_level": get_env("LOG_LEVEL", "INFO"),
+        "api_port": api_port if api_port > 0 else None,
+        "firebase_credentials": firebase_credentials or None,
+        "push_enabled": push_enabled,
+        "push_on_sent": push_on_sent,
     }
 
 

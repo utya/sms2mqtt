@@ -11,3 +11,4 @@ tmp/
 .env
 .env.*
 !.env.example
+*-firebase-adminsdk-*.json

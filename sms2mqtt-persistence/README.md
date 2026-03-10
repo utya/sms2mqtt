@@ -28,6 +28,16 @@ Optional MQTT listener: subscribes to `{prefix}/received` and `{prefix}/sent`, p
 
 **Other:** `LOG_LEVEL` — `DEBUG`, `INFO`, `WARNING`, `ERROR` (default `INFO`).
 
+**Optional REST API (Firebase Auth):**
+
+| Variable                 | Required | Description                                      |
+|---------------------------|----------|--------------------------------------------------|
+| `API_PORT`                | no       | If set, enable HTTP API (e.g. `8080`)            |
+| `FIREBASE_CREDENTIALS`    | if API   | Path to Firebase service account JSON file       |
+| `GOOGLE_APPLICATION_CREDENTIALS` | no  | Alternative to `FIREBASE_CREDENTIALS`           |
+
+When `API_PORT` is set, the service runs both the MQTT listener (background) and an HTTP server. **GET /sms** returns SMS for the authenticated user (Firebase ID token in `Authorization: Bearer <token>`). Query params: `limit` (default 50), `offset`, `direction` (`received` \| `sent`). Response: `{ "items": [...], "total": N }`.
+
 ## Schema
 
 Create the database and apply the schema before first run:
@@ -68,7 +78,7 @@ From the repo root you can start Postgres + this listener with:
 docker compose -f docker-compose.persistence.yml up -d
 ```
 
-Set `MQTT_HOST`, `MQTT_PREFIX`, etc. (or use defaults). The main sms2mqtt bridge is not included in that compose — run it separately. Apply `schema.sql` to the postgres service before the listener will succeed (e.g. `docker compose -f docker-compose.persistence.yml exec postgres psql -U sms2mqtt -d sms2mqtt -f - < sms2mqtt-persistence/schema.sql` or run once from host).
+Set `MQTT_HOST`, `MQTT_PREFIX`, etc. (or use defaults). The main sms2mqtt bridge is not included in that compose — run it separately. Schema is applied automatically on first start. To enable the REST API, set `API_PORT=8080` and `FIREBASE_CREDENTIALS=/path/in/container` (mount your Firebase service account JSON into the container).
 
 ## Tests
 

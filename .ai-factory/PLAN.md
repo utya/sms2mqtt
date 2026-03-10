@@ -1,75 +1,86 @@
-# Implementation Plan: Migrate to uv (no requirements.txt, no pip)
+# Implementation Plan: FCM Push Notifications (sms2mqtt-persistence)
 
 Branch: none (fast mode)
-Created: 2025-02-24
+Created: 2025-03-10
 
 ## Settings
-- Testing: yes (existing tests must pass via uv)
-- Logging: standard (no new logging for this chore)
-- Docs: yes (README and DESCRIPTION.md)
+- Testing: include tests (unit for db/push logic where practical)
+- Logging: verbose (DEBUG for push flow, INFO for send counts, WARN/ERROR for failures)
+- Docs: update docs/persistence.md with push config and API endpoints
 
-## Goal
-- Replace all use of pip and `requirements*.txt` with **uv** (pyproject.toml + uv.lock).
-- Two Python “projects”: root (sms2mqtt) and `sms2mqtt-persistence/`, each with own `pyproject.toml` and `uv.lock`.
+## Overview
+Implement FCM push notifications per `docs/push-design.md`: notify users when new SMS is received (and optionally sent). Uses existing Firebase Admin SDK; new table `fcm_tokens`, API for token registration, and `push.py` called from listener after `insert_sms()`.
 
 ## Commit Plan
-- **Commit 1** (after tasks 1–2): `chore: migrate root project to uv`
-- **Commit 2** (after tasks 3–4): `chore: migrate sms2mqtt-persistence to uv and update CI`
-- **Commit 3** (after task 5): `docs: update README and DESCRIPTION for uv`
+- **Commit 1** (after tasks 1–2): `feat(persistence): add fcm_tokens schema and db helpers`
+- **Commit 2** (after tasks 3–4): `feat(persistence): add push module and wire into listener`
+- **Commit 3** (after tasks 5–6): `feat(persistence): add FCM token API and config`
 
 ---
 
 ## Tasks
 
-### Phase 1: Root project (sms2mqtt)
+### Phase 1: Schema and DB
 
-- [x] **Task 1: Add runtime and dev dependencies to root `pyproject.toml`, generate `uv.lock`**
-  - **File:** `pyproject.toml`
-  - In `[project]` add:
-    - `dependencies = ["python-gammu>=3.2,<4", "paho-mqtt>=2.0", "certifi>=2023.7.22"]`
-    - Optional: `[project.optional-dependencies]` with `dev = ["pytest>=7.0", "ruff>=0.8"]` (or put dev deps in main dependencies for simplicity; then CI uses `uv sync` and gets everything).
-  - Run in repo root: `uv lock`.
-  - **Deliverable:** `pyproject.toml` with deps, `uv.lock` at repo root. No new logging.
-  - **Done:** `python-gammu` moved to optional `[run]` so CI can use `uv sync --extra dev` without system gammu; Docker uses `uv sync --frozen --no-dev --extra run`.
+- [x] **Task 1: Add `fcm_tokens` table to schema**
+  - **File:** `sms2mqtt-persistence/schema.sql`
+  - Add table `fcm_tokens` (id BIGSERIAL, user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE, token TEXT NOT NULL UNIQUE, platform TEXT, created_at TIMESTAMPTZ DEFAULT now(), updated_at TIMESTAMPTZ DEFAULT now()).
+  - Add index `idx_fcm_tokens_user_id` on `fcm_tokens(user_id)`.
+  - Add brief COMMENT on table/columns if needed.
+  - **Logging:** N/A (schema only).
 
-- [x] **Task 2: Update root `Dockerfile` to use uv only (no pip, no requirements.txt)**
-  - **File:** `Dockerfile`
-  - Install uv: e.g. `COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/` (or official recommended way for Alpine).
-  - Copy `pyproject.toml` and `uv.lock` (and any needed source) then run `uv sync --frozen --no-dev` (production image: no dev deps).
-  - Remove any `pip install`, `COPY requirements.txt`, and use of `requirements.txt`.
-  - Keep base `python:3.11-alpine` and `apk add gammu-dev` (and build-deps only if needed for compiling wheels; uv can fetch manylinux wheels so this may simplify).
-  - **Deliverable:** Dockerfile builds with uv only; image runs `python /app/sms2mqtt.py` as today.
-  - **Note:** On `python:3.11-alpine`, uv can be installed via `COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/` (ensure binary is in `PATH`). If the official image is glibc-only, use the installer script from https://astral.sh/uv/install.sh or an Alpine-compatible uv image.
+- [x] **Task 2: DB helpers for FCM and device→users**
+  - **Files:** `sms2mqtt-persistence/db.py`
+  - Implement:
+    - `get_user_ids_for_device(conn, device_id: str) -> list[int]`: select `user_id` from `devices` where `device_id = %s`. If any row has `user_id IS NOT NULL`, return list of those (distinct) user ids. If only `user_id IS NULL` or no rows, return all user ids from `users` (single-tenant: shared device).
+    - `get_fcm_tokens_for_user(conn, user_id: int) -> list[str]`: select `token` from `fcm_tokens` where `user_id = %s`; return list of token strings.
+    - `upsert_fcm_token(conn, user_id: int, token: str, platform: str | None = None) -> None`: INSERT (user_id, token, platform) ON CONFLICT (token) DO UPDATE SET user_id = EXCLUDED.user_id, platform = EXCLUDED.platform, updated_at = now(). Caller commits.
+    - `delete_fcm_token(conn, user_id: int, token: str) -> int`: DELETE FROM fcm_tokens WHERE user_id = %s AND token = %s; return rowcount. Caller commits.
+    - `delete_fcm_token_by_token(conn, token: str) -> int`: DELETE FROM fcm_tokens WHERE token = %s; return rowcount. Used by push module when FCM reports invalid/unregistered token (no user_id in response). Caller commits.
+  - **Logging:** DEBUG on entry/exit for get_* (e.g. device_id/user_id, count of ids/tokens); DEBUG for upsert/delete with user_id and token prefix (first 8 chars) for privacy.
 
-### Phase 2: sms2mqtt-persistence
+### Phase 2: Push module and listener integration
 
-- [x] **Task 3: Add `pyproject.toml` and `uv.lock` for sms2mqtt-persistence**
-  - **Files:** `sms2mqtt-persistence/pyproject.toml`, `sms2mqtt-persistence/uv.lock`
-  - Create `pyproject.toml` with `[project]`: name e.g. `sms2mqtt-persistence`, `requires-python = ">=3.11"`, dependencies from current `sms2mqtt-persistence/requirements.txt`: `paho-mqtt>=2.0,<3`, `psycopg2-binary>=2.9,<3`, `certifi>=2023.7.22`; dev/test: `pytest>=7.0`.
-  - Run `uv lock` inside `sms2mqtt-persistence/` to generate `uv.lock`.
-  - **Deliverable:** Dependencies defined only in pyproject.toml; uv.lock present. No logging changes.
+- [x] **Task 3: Implement `push.py`**
+  - **File:** `sms2mqtt-persistence/push.py` (new)
+  - Dependencies: reuse Firebase app from `auth_firebase` (same default app); use `firebase_admin.messaging` for `Message`, `MulticastMessage`, `send_each_for_multicast`.
+  - Implement:
+    - `send_sms_push(conn, config, row: dict, row_id: int) -> None`. row has direction, device_id, remote_number, text, etc. If `config.get("push_enabled")` is false or no `config.get("firebase_credentials")`, return immediately. If direction is `sent` and not `config.get("push_on_sent")`, return. Get user_ids via `get_user_ids_for_device(conn, row["device_id"])`; for each user get tokens via `get_fcm_tokens_for_user`; collect unique tokens (set). If no tokens, return. Build notification title/body from design (e.g. "SMS" / "От +7900…: превью"); data payload: type (sms_received|sms_sent), sms_id (str), device_id, remote_number, direction, optional text_preview (first 50 chars). FCM data values must be strings. Send in batches of 500 via `send_each_for_multicast`. On response: for each BatchResponse.success_count log INFO; for failures with code in (invalid_argument, unregistered, registration-token-not-registered), call `delete_fcm_token_by_token(conn, token)` and log WARNING.
+  - **Logging:** DEBUG: entry (row_id, direction, device_id); DEBUG: user_ids and token count; INFO: "Push sent to N tokens" or "Push batch k: success M, failures F"; WARN: invalid token removed (token prefix); ERROR: exception during send with traceback.
 
-- [x] **Task 4: Update sms2mqtt-persistence `Dockerfile` and CI to use uv**
-  - **Files:** `sms2mqtt-persistence/Dockerfile`, `.github/workflows/ci.yml`, `.gitlab-ci.yml`
-  - **Persistence Dockerfile:** Install uv (same pattern as root), copy `pyproject.toml` and `uv.lock`, run `uv sync --frozen --no-dev`. Remove `COPY requirements.txt` and `pip install -r requirements.txt`.
-  - **GitHub Actions (ci.yml):** Use `astral-sh/setup-uv` (or equivalent); run `uv sync` in repo root (for main app + dev deps) and `uv run ruff` / `uv run pytest tests/`; for persistence run e.g. `cd sms2mqtt-persistence && uv sync && uv run pytest tests/ -v --tb=short` (or from root with `uv run` and correct PYTHONPATH if using workspace; simpler is two separate uv contexts).
-  - **GitLab CI:** Replace `pip install -r requirements-dev.txt` and `PIP_CACHE_DIR` with uv: install uv, then `uv sync` (cache uv’s cache dir if desired). Run `uv run ruff` and `uv run pytest` for root; same for sms2mqtt-persistence as above.
-  - **Deliverable:** No pip or requirements*.txt in CI or persistence Dockerfile.
+- [x] **Task 4: Wire push into listener and config**
+  - **Files:** `sms2mqtt-persistence/listener.py`, `sms2mqtt-persistence/config.py`
+  - **config.py:** Add `push_enabled` (default True: `get_env("PUSH_ENABLED", "true").lower() in ("true", "1", "yes")`), `push_on_sent` (default False: same pattern for `PUSH_ON_SENT`). Include in returned config dict.
+  - **listener.py:** After successful `insert_sms(conn, row)` when `row_id is not None`, if `config.get("api_port")` and `config.get("firebase_credentials")` and `config.get("push_enabled", True)`, call `send_sms_push(conn, config, row, row_id)` (same conn still open). Catch exceptions from `send_sms_push` and log ERROR without failing the message processing (push is best-effort).
+  - **Logging:** DEBUG in listener when push is skipped (no api/firebase/push_enabled) or when calling push; ERROR with message when push raises.
 
-### Phase 3: Cleanup and docs
+### Phase 3: API and docs
 
-- [x] **Task 5: Remove all requirements files and update README + DESCRIPTION**
-  - **Delete:** `requirements.txt`, `requirements-dev.txt`, `sms2mqtt-persistence/requirements.txt`.
-  - **README.md:** In “Development” replace pip install with uv: e.g. `uv sync` (and if dev deps are optional: `uv sync --all-extras` or the chosen convention). Update commands to `uv run pytest ...`, `uv run ruff ...`.
-  - **.ai-factory/DESCRIPTION.md:** Change “requirements.txt for pinned deps” to “uv (pyproject.toml + uv.lock)”.
-  - **AGENTS.md:** In project structure, replace references to `requirements.txt` / `requirements-dev.txt` with pyproject.toml and uv.lock for root and sms2mqtt-persistence.
-  - **Deliverable:** No requirements*.txt in repo; docs and AGENTS.md describe uv workflow only.
+- [x] **Task 5: FCM token API**
+  - **File:** `sms2mqtt-persistence/api.py`
+  - Add `POST /fcm-token`: body `{"token": "<string>", "platform": "android"|"ios"|"web"}` (platform optional). Auth: `Depends(get_current_user)`. Validate token non-empty string; 400 if invalid. Get DB connection from config, `upsert_fcm_token(conn, user["id"], token, body.get("platform"))`, commit, return `{"registered": true}`.
+  - Add `DELETE /fcm-token`: accept body `{"token": "<string>"}` or query `token=...`. Auth: `Depends(get_current_user)`. Resolve token from body or query; 400 if missing. `delete_fcm_token(conn, user["id"], token)`, commit, return 204 or 200 with `{"deleted": true}`.
+  - **Logging:** INFO on successful register/delete (user_id, token prefix); DEBUG request body/query; WARN on 400 (missing/invalid token).
+
+- [x] **Task 6: Document push in persistence.md**
+  - **File:** `docs/persistence.md`
+  - Add section on Push (FCM): env vars `PUSH_ENABLED`, `PUSH_ON_SENT`; when push runs (after insert, only if API + Firebase enabled); API endpoints `POST /fcm-token`, `DELETE /fcm-token` and request/response; note that FCM uses existing Firebase project/credentials.
 
 ---
 
-## Verification
-- `uv sync` in root and in `sms2mqtt-persistence/` succeed.
-- Root: `uv run pytest tests/ -v`, `uv run ruff check .` and `uv run ruff format --check .` pass.
-- Persistence: `cd sms2mqtt-persistence && uv sync && uv run pytest tests/ -v` pass.
-- Docker build for main image and for sms2mqtt-persistence image succeed and containers run.
-- CI (GitHub Actions and GitLab CI) pass with no pip or requirements files.
+## Dependencies and order
+- Task 2 depends on Task 1 (table must exist).
+- Task 3 depends on Task 2 (db helpers).
+- Task 4 depends on Task 3 (push module) and config from Task 4 (config.py can be done in same task as listener).
+- Task 5 depends on Task 2 (upsert/delete token).
+- Task 6 can be done after 5 (documents full feature).
+
+## Edge cases (from design)
+- Single-tenant: `devices.user_id IS NULL` for device → notify all users (get_user_ids_for_device returns all user ids when device has no owner).
+- Batch FCM: up to 500 tokens per `send_each_for_multicast`; chunk token list if longer.
+- Invalid/unregistered tokens: remove from `fcm_tokens` so we do not retry.
+- Push is best-effort: do not block or fail DB insert; log and continue on push errors.
+
+## Out of scope (design)
+- Throttling (N pushes per user per minute) — later iteration.
+- Async/thread/queue for push — first version synchronous after insert.

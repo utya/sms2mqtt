@@ -16,7 +16,33 @@ This starts Postgres and the persistence listener. Configure MQTT and DB via env
 
 - The main SMS-to-MQTT bridge is **not** included in that compose file; run it separately (e.g. `docker compose up -d` for the main app).
 - **Schema is applied automatically:** on first start with an empty Postgres volume, the image runs `schema.sql` from `docker-entrypoint-initdb.d`. The persistence service also runs `ensure_schema()` on every startup, so the `sms` table and indexes are created if missing (e.g. when using an existing Postgres that was not initialized by this compose). No manual `psql` steps needed.
-- Schema and table layout are in `sms2mqtt-persistence/schema.sql`.
+- Schema and table layout are in `sms2mqtt-persistence/schema.sql`. Tables: `users` (for auth / multi-tenant), `devices` (modem ↔ user), `sms` (messages).
+- **Access control (REST API):** Single-user mode — one or no rows in `users`, `devices.user_id` NULL or all devices assigned to that user; any authenticated request sees all SMS. Multi-user — each device has `user_id`; list SMS only for devices owned by the current user.
+- **REST API (optional):** Set `API_PORT` (e.g. 8080) and `FIREBASE_CREDENTIALS` (path to Firebase service account JSON). Then **GET /sms** returns SMS for the user identified by Firebase ID token (`Authorization: Bearer <token>`). Params: `limit`, `offset`, `direction` (received \| sent). See [sms2mqtt-persistence/README.md](../sms2mqtt-persistence/README.md).
+
+## Push notifications (FCM)
+
+When the API is enabled (`API_PORT` and `FIREBASE_CREDENTIALS`), the service can send Firebase Cloud Messaging (FCM) push notifications when new SMS is stored. The same Firebase project and service account are used for Auth and FCM.
+
+**Environment variables:**
+
+| Variable      | Default | Description |
+|---------------|---------|-------------|
+| `PUSH_ENABLED` | `true`  | Enable push notifications (set to `false` to only persist SMS, no FCM). |
+| `PUSH_ON_SENT` | `false` | Also send a push when an outgoing SMS is stored (by default only incoming SMS trigger a push). |
+
+Push is sent **after** the SMS row is written to the database (best-effort: failures are logged but do not affect persistence). If `PUSH_ENABLED` is false or Firebase is not configured, no push is sent.
+
+**FCM token API (authenticated):**
+
+- **POST /fcm-token** — Register or update the FCM device token for the current user.  
+  Body: `{ "token": "<FCM token>", "platform": "android" | "ios" | "web" }` (platform optional).  
+  Response: `200` with `{ "registered": true }`. Call on app login or when the token is refreshed.
+
+- **DELETE /fcm-token** — Remove the FCM token (e.g. on logout).  
+  Token can be passed in the query string (`?token=...`) or in the body: `{ "token": "<FCM token>" }`.  
+  Response: `200` with `{ "deleted": true }`.
+- **Postgres port:** Host port 5432 is published so you can run `psql -h localhost -p 5432 -U sms2mqtt -d sms2mqtt` from the same machine. If you use **Docker Stack / Swarm** (`docker stack deploy`), the compose file uses `ports` with `mode: host` so the port is bound on the node; after deploy, run `docker service ps <stack>_postgres` to see which node runs Postgres, then connect to that node’s IP. If `nc -zv localhost 5432` fails, re-deploy with the current compose and check `docker ps` (Compose) or `docker service ls` (Stack) that the postgres service is running.
 
 ## Deployment: image pull timeout
 

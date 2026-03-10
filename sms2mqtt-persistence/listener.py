@@ -22,6 +22,7 @@ import paho.mqtt.client as mqtt
 from config import load_config, mask_password
 from db import ensure_schema, get_connection
 from persist import insert_sms, payload_to_row
+from push import send_sms_push
 
 # Max messages to buffer when DB is slow; drop oldest would require a different queue policy.
 MQ_MAX_SIZE = 10_000
@@ -165,6 +166,13 @@ def run_mqtt_loop(config: dict, logger: logging.Logger) -> None:
                             row_id,
                             row["remote_number"],
                         )
+                        if config.get("api_port") and config.get("firebase_credentials") and config.get("push_enabled", True):
+                            try:
+                                send_sms_push(conn, config, row, row_id)
+                            except Exception as push_err:
+                                logger.error("Push failed after insert topic=%s: %s", topic, push_err)
+                        else:
+                            logger.debug("Push skipped (no api/firebase/push_enabled)")
                     else:
                         logger.error(
                             "Insert failed for topic=%s remote_number=%s",
@@ -226,7 +234,28 @@ def main() -> None:
 
     ensure_schema(config["db"])
 
-    run_mqtt_loop(config, logger)
+    api_port = config.get("api_port")
+    if api_port:
+        from api import create_app
+        from auth_firebase import init_firebase as init_firebase_app
+        import uvicorn
+
+        init_firebase_app(config.get("firebase_credentials"))
+        mqtt_thread = threading.Thread(
+            target=run_mqtt_loop,
+            args=(config, logger),
+            daemon=True,
+        )
+        mqtt_thread.start()
+        logger.info("MQTT listener started in background, API on port %s", api_port)
+        uvicorn.run(
+            create_app(config),
+            host="0.0.0.0",
+            port=api_port,
+            log_level="info",
+        )
+    else:
+        run_mqtt_loop(config, logger)
 
 
 if __name__ == "__main__":

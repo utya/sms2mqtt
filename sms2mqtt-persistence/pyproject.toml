@@ -7,6 +7,9 @@ dependencies = [
     "paho-mqtt>=2.0,<3",
     "psycopg2-binary>=2.9,<3",
     "certifi>=2023.7.22",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+    "firebase-admin>=6.6,<7",
 ]
 [project.optional-dependencies]
 dev = [

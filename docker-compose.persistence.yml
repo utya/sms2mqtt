@@ -1,7 +1,10 @@
 # Optional SMS persistence: Postgres + MQTT listener.
 # Main sms2mqtt bridge is NOT included — run it separately or add to your compose.
 # Usage: docker compose -f docker-compose.persistence.yml up -d
-# Separate project name so starting this stack does not stop the main sms2mqtt bridge.
+#        OR docker stack deploy -c docker-compose.persistence.yml <stackname>
+#
+# Important: Do NOT set "persistence_pgdata: null" — use "persistence_pgdata:" (no value).
+# For Docker Stack/Swarm, ports use mode: host so localhost:5432 works on the node.
 name: ${SMS2MQTT_PERSISTENCE:-sms2mqtt-persistence}
 
 x-logging: &persistence-logging
@@ -12,15 +15,19 @@ x-logging: &persistence-logging
 
 services:
   postgres:
-    # Override with POSTGRES_IMAGE if pull from Docker Hub times out (e.g. mirror or postgres:16-alpine).
     image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    # Port 5432 on host so you can psql -h localhost -p 5432. mode: host required for docker stack deploy.
+    ports:
+      - target: 5432
+        published: "${PGPORT_HOST:-5432}"
+        protocol: tcp
+        mode: host
     environment:
       POSTGRES_DB: sms2mqtt
       POSTGRES_USER: sms2mqtt
       POSTGRES_PASSWORD: ${PGPASSWORD:-sms2mqtt}
     volumes:
       - persistence_pgdata:/var/lib/postgresql/data
-      # Run schema on first start when DB is empty (initdb.d runs only on fresh data dir)
       - ./sms2mqtt-persistence/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sms2mqtt -d sms2mqtt"]
@@ -53,6 +60,10 @@ services:
       PGUSER: sms2mqtt
       PGPASSWORD: ${PGPASSWORD:-sms2mqtt}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Optional REST API (Firebase): set API_PORT and mount Firebase JSON, e.g. FIREBASE_CREDENTIALS=/secrets/firebase.json
+      API_PORT: ${API_PORT:-}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
+    # When using API, expose port (e.g. add: ports: ["8080:8080"]) and mount Firebase JSON.
     depends_on:
       postgres:
         condition: service_healthy
