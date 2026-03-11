@@ -45,7 +45,7 @@ COMMENT ON COLUMN sms.device_id IS 'Modem/bridge identifier (e.g. MQTT prefix). 
 
 -- Single-user: leave devices.user_id NULL (or create one user and assign devices to them). List SMS: all for authenticated user.
 -- Multi-user: set devices.user_id for each modem. List SMS: only where device_id IN (SELECT device_id FROM devices WHERE user_id = current_user_id).
--- When a new device appears (first SMS from unknown device_id), insert INTO devices(device_id, user_id) VALUES (..., NULL) or assign to a user; ensure_schema does not create device rows, app or migration can.
+-- When a new device appears (first SMS from unknown device_id), insert INTO devices(device_id, user_id) VALUES (..., NULL) or assign to a user. ensure_schema does not create device rows, app or migration can.
 
 -- FCM tokens: one row per device token per user. Used to send push notifications on new SMS.
 CREATE TABLE IF NOT EXISTS fcm_tokens (
