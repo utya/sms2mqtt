@@ -13,11 +13,32 @@ logger = logging.getLogger(__name__)
 
 _SCHEMA_PATH = os.path.join(os.path.dirname(__file__), "schema.sql")
 
+# Tables that must exist after schema apply. Order matters for creation (fcm_tokens refs users).
+REQUIRED_TABLES = ("users", "devices", "sms", "fcm_tokens")
+
+
+def _apply_schema(conn: extensions.connection, statements: list[str]) -> None:
+    """Execute schema statements one by one. Idempotent (CREATE TABLE IF NOT EXISTS etc.)."""
+    with conn.cursor() as cur:
+        for stmt in statements:
+            cur.execute(stmt)
+
+
+def _tables_exist(conn: extensions.connection) -> set[str]:
+    """Return set of required table names that exist in public schema."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename = ANY(%s)",
+            (list(REQUIRED_TABLES),),
+        )
+        return {row[0] for row in cur.fetchall()}
+
 
 def ensure_schema(db_config: dict[str, Any]) -> None:
     """
     Create tables and indexes if they do not exist (idempotent).
-    Run on startup so DB is ready whether or not Postgres init script ran.
+    Run on startup: apply schema.sql, then verify all required tables exist.
+    If any table is missing after apply, raises so the app does not start with incomplete schema.
     """
     if not os.path.isfile(_SCHEMA_PATH):
         logger.warning("Schema file not found at %s, skipping ensure_schema", _SCHEMA_PATH)
@@ -27,7 +48,7 @@ def ensure_schema(db_config: dict[str, Any]) -> None:
             sql = f.read()
     except OSError as e:
         logger.error("Cannot read schema file: %s", e)
-        return
+        raise
     # Split into statements; drop comment-only lines from each, then skip empty
     statements = []
     for s in sql.split(";"):
@@ -36,26 +57,38 @@ def ensure_schema(db_config: dict[str, Any]) -> None:
         if stmt:
             statements.append(stmt)
     if not statements:
+        logger.warning("Schema file is empty or has no statements")
         return
+    conn = psycopg2.connect(
+        host=db_config["host"],
+        port=db_config["port"],
+        dbname=db_config["database"],
+        user=db_config["user"],
+        password=db_config["password"],
+    )
+    conn.autocommit = True
     try:
-        conn = psycopg2.connect(
-            host=db_config["host"],
-            port=db_config["port"],
-            dbname=db_config["database"],
-            user=db_config["user"],
-            password=db_config["password"],
-        )
-        conn.autocommit = True
-        try:
-            with conn.cursor() as cur:
-                for stmt in statements:
-                    cur.execute(stmt)
-            logger.info("Schema ensured (tables/indexes created if missing)")
-        finally:
-            conn.close()
+        _apply_schema(conn, statements)
+        existing = _tables_exist(conn)
+        missing = [t for t in REQUIRED_TABLES if t not in existing]
+        if missing:
+            logger.error(
+                "Schema apply completed but required tables are missing: %s. "
+                "Rebuild the persistence image and restart so the app uses the full schema.sql.",
+                missing,
+            )
+            raise RuntimeError(
+                f"Missing required tables: {missing}. "
+                "Rebuild sms2mqtt-persistence image and restart (schema.sql in image may be outdated)."
+            )
+        logger.info("Schema ensured (tables/indexes created if missing): %s", list(REQUIRED_TABLES))
+    except (psycopg2.Error, RuntimeError):
+        raise
     except Exception as e:
         logger.error("Schema ensure failed: %s", e)
         raise
+    finally:
+        conn.close()
 
 
 def get_connection(db_config: dict[str, Any]) -> extensions.connection:
