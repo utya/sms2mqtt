@@ -86,40 +86,31 @@ def send_sms_push(
         logger.debug("send_sms_push: no tokens, skipping")
         return
 
-    # Build notification and data (FCM data values must be strings). Full SMS text.
+    # Data-only payload (no notification): full SMS text and sender. FCM data values must be strings.
     text_full = row.get("text") or ""
-    if direction == "received":
-        notif_title = "SMS"
-        notif_body = f"From {row.get('remote_number', '')}: {text_full}"
-    else:
-        notif_title = "Sent"
-        notif_body = f"Sent to {row.get('remote_number', '')}: {text_full}" if text_full else f"Sent to {row.get('remote_number', '')}"
+    remote_number = row.get("remote_number") or ""
 
     data_payload: dict[str, str] = {
         "type": "sms_received" if direction == "received" else "sms_sent",
         "sms_id": str(row_id),
         "device_id": device_id,
-        "remote_number": row.get("remote_number") or "",
+        "remote_number": remote_number,
         "direction": direction,
+        "text": text_full,
     }
-    if text_full:
-        data_payload["text"] = text_full
 
     try:
         from firebase_admin import messaging
-
-        notification = messaging.Notification(title=notif_title, body=notif_body)
     except ImportError as e:
         logger.error("send_sms_push: firebase_admin.messaging not available: %s", e)
         return
 
-    # Send in batches of 500
+    # Send in batches of 500 (data-only, no notification)
     for i in range(0, len(tokens), FCM_BATCH_SIZE):
         batch_tokens = tokens[i : i + FCM_BATCH_SIZE]
         try:
             msg = messaging.MulticastMessage(
                 tokens=batch_tokens,
-                notification=notification,
                 data=data_payload,
             )
             batch_response = messaging.send_each_for_multicast(msg)
