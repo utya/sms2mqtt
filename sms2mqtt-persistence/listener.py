@@ -235,12 +235,24 @@ def main() -> None:
     ensure_schema(config["db"])
 
     api_port = config.get("api_port")
+    firebase_creds = config.get("firebase_credentials")
+    if api_port:
+        logger.info(
+            "API enabled on port %s, Firebase credentials: %s",
+            api_port,
+            firebase_creds or "not set",
+        )
+    else:
+        logger.info(
+            "API disabled (set API_PORT and FIREBASE_CREDENTIALS to enable REST API and push)"
+        )
+
     if api_port:
         from api import create_app
         from auth_firebase import init_firebase as init_firebase_app
         import uvicorn
 
-        init_firebase_app(config.get("firebase_credentials"))
+        init_firebase_app(firebase_creds)
         mqtt_thread = threading.Thread(
             target=run_mqtt_loop,
             args=(config, logger),
