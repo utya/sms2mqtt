@@ -3,6 +3,7 @@ Firebase Auth: initialize from service account path and verify ID tokens.
 """
 
 import logging
+import os
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -15,6 +16,17 @@ def init_firebase(credentials_path: str | None) -> None:
     global _firebase_initialized
     if _firebase_initialized or not credentials_path:
         return
+    if not os.path.isfile(credentials_path):
+        if os.path.isdir(credentials_path):
+            raise FileNotFoundError(
+                f"Firebase credentials path is a directory, not a file: {credentials_path}. "
+                "On the host, ensure FIREBASE_CREDENTIALS_FILE points to an existing JSON file; "
+                "if the file was missing, Docker created a directory at that mount path."
+            )
+        raise FileNotFoundError(
+            f"Firebase credentials file not found: {credentials_path}. "
+            "Set FIREBASE_CREDENTIALS_FILE on the host to the path of your Firebase service account JSON."
+        )
     try:
         import firebase_admin
         from firebase_admin import credentials

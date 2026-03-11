@@ -3,8 +3,9 @@
 # Usage: docker compose -f docker-compose.persistence.yml up -d
 #        OR docker stack deploy -c docker-compose.persistence.yml <stackname>
 #
-# REST API + push: set API_PORT=8080, FIREBASE_CREDENTIALS=/app/firebase-credentials.json,
-# and FIREBASE_CREDENTIALS_FILE to host path to your Firebase service account JSON.
+# REST API + push: set API_PORT=8080. Mount a directory with Firebase JSON inside:
+#   FIREBASE_CREDENTIALS_DIR=./firebase-secrets  (host dir; put firebase-credentials.json inside)
+#   Container path: /app/firebase-secrets/firebase-credentials.json
 #
 # Important: Do NOT set "persistence_pgdata: null" — use "persistence_pgdata:" (no value).
 # For Docker Stack/Swarm, ports use mode: host so localhost:5432 works on the node.
@@ -69,11 +70,11 @@ services:
       PGPASSWORD: ${PGPASSWORD:-sms2mqtt}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       API_PORT: ${API_PORT:-}
-      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-/app/firebase-credentials.json}
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-/app/firebase-secrets/firebase-credentials.json}
       PUSH_ENABLED: ${PUSH_ENABLED:-true}
       PUSH_ON_SENT: ${PUSH_ON_SENT:-false}
     volumes:
-      - ${FIREBASE_CREDENTIALS_FILE:-./firebase-credentials.json}:/app/firebase-credentials.json:ro
+      - ${FIREBASE_CREDENTIALS_DIR:-./firebase-secrets}:/app/firebase-secrets:ro
     depends_on:
       postgres:
         condition: service_healthy
