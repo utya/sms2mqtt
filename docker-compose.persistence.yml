@@ -1,7 +1,10 @@
-# Optional SMS persistence: Postgres + MQTT listener.
+# Optional SMS persistence: Postgres + MQTT listener (+ optional REST API and FCM push).
 # Main sms2mqtt bridge is NOT included — run it separately or add to your compose.
 # Usage: docker compose -f docker-compose.persistence.yml up -d
 #        OR docker stack deploy -c docker-compose.persistence.yml <stackname>
+#
+# REST API + push: set API_PORT=8080, FIREBASE_CREDENTIALS=/app/firebase-credentials.json,
+# and FIREBASE_CREDENTIALS_FILE to host path to your Firebase service account JSON.
 #
 # Important: Do NOT set "persistence_pgdata: null" — use "persistence_pgdata:" (no value).
 # For Docker Stack/Swarm, ports use mode: host so localhost:5432 works on the node.
@@ -46,6 +49,11 @@ services:
 
   sms2mqtt-persistence:
     build: ./sms2mqtt-persistence
+    ports:
+      - target: 8080
+        published: "${API_PORT_HOST:-8080}"
+        protocol: tcp
+        mode: host
     environment:
       HOST: ${MQTT_HOST:-localhost}
       PORT: ${MQTT_PORT:-1883}
@@ -60,10 +68,12 @@ services:
       PGUSER: sms2mqtt
       PGPASSWORD: ${PGPASSWORD:-sms2mqtt}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # Optional REST API (Firebase): set API_PORT and mount Firebase JSON, e.g. FIREBASE_CREDENTIALS=/secrets/firebase.json
       API_PORT: ${API_PORT:-}
-      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-}
-    # When using API, expose port (e.g. add: ports: ["8080:8080"]) and mount Firebase JSON.
+      FIREBASE_CREDENTIALS: ${FIREBASE_CREDENTIALS:-/app/firebase-credentials.json}
+      PUSH_ENABLED: ${PUSH_ENABLED:-true}
+      PUSH_ON_SENT: ${PUSH_ON_SENT:-false}
+    volumes:
+      - ${FIREBASE_CREDENTIALS_FILE:-./firebase-credentials.json}:/app/firebase-credentials.json:ro
     depends_on:
       postgres:
         condition: service_healthy
