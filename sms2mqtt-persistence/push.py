@@ -86,14 +86,14 @@ def send_sms_push(
         logger.debug("send_sms_push: no tokens, skipping")
         return
 
-    # Build notification and data (FCM data values must be strings)
+    # Build notification and data (FCM data values must be strings). Full SMS text.
+    text_full = row.get("text") or ""
     if direction == "received":
         notif_title = "SMS"
-        text_preview = (row.get("text") or "")[:50]
-        notif_body = f"From {row.get('remote_number', '')}: {text_preview}"
+        notif_body = f"From {row.get('remote_number', '')}: {text_full}"
     else:
         notif_title = "Sent"
-        notif_body = f"Sent to {row.get('remote_number', '')}"
+        notif_body = f"Sent to {row.get('remote_number', '')}: {text_full}" if text_full else f"Sent to {row.get('remote_number', '')}"
 
     data_payload: dict[str, str] = {
         "type": "sms_received" if direction == "received" else "sms_sent",
@@ -102,9 +102,8 @@ def send_sms_push(
         "remote_number": row.get("remote_number") or "",
         "direction": direction,
     }
-    text_preview = (row.get("text") or "")[:50]
-    if text_preview:
-        data_payload["text_preview"] = text_preview
+    if text_full:
+        data_payload["text"] = text_full
 
     try:
         from firebase_admin import messaging
